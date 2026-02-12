@@ -41,9 +41,7 @@ export default class AuthController {
   }
 
   async login({ request, auth, response }: HttpContext) {
-    console.log('Login attempt')
     const payload = await request.validateUsing(loginValidator)
-    console.log('Payload validated:', payload)
     const identifier = payload.email ?? payload.phone
 
     if (!identifier) {
@@ -51,7 +49,6 @@ export default class AuthController {
     }
 
     const user = await User.verifyCredentials(identifier, payload.password)
-    console.log('User found:', user)
 
     if (!user) {
       return response.unauthorized({ message: 'Invalid credentials.' })
