@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f6f2ec;
+  --fg: #16130f;
+  --muted: #5f5a55;
+  --panel: #fff8f0;
+  --panel-strong: #fbe9d2;
+  --accent: #f28c28;
+  --accent-strong: #d4680f;
+  --accent-soft: #ffd9a3;
+  --line: #e2d8ca;
+  --shadow: 0 20px 60px rgba(45, 34, 20, 0.12);
+}
+
+:root[data-theme="dark"] {
+  --bg: #12100e;
+  --fg: #f5efe6;
+  --muted: #b3a99a;
+  --panel: #1a1714;
+  --panel-strong: #26211c;
+  --accent: #ffb85c;
+  --accent-strong: #ff9b2f;
+  --accent-soft: #3a2a16;
+  --line: #2a241d;
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --font-sans: var(--font-sora);
+  --font-serif: var(--font-dm-serif);
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, #fff1d8 0%, transparent 45%),
+    radial-gradient(circle at 80% 0%, #ffe5c2 0%, transparent 40%), var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sora), ui-sans-serif, system-ui;
+  min-height: 100vh;
+}
+
+.texture-grid {
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
