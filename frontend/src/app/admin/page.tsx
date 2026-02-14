@@ -112,7 +112,8 @@ export default function AdminPage() {
     setStatus(null);
     setIsSubmitting(true);
 
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const payload = {
       fullName: String(form.get("fullName") || "").trim(),
       shopName: String(form.get("shopName") || "").trim(),
@@ -130,7 +131,7 @@ export default function AdminPage() {
         body: JSON.stringify(payload),
       });
       setStatus({ tone: "success", message: "Seller account created." });
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (error) {
       const message =
         error && typeof error === "object" && "message" in error

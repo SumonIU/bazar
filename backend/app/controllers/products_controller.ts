@@ -7,7 +7,7 @@ const productValidator = vine.compile(
   vine.object({
     name: vine.string().trim(),
     nutritionInfo: vine.string().trim().optional(),
-    images: vine.array(vine.string().trim()).optional(),
+    image: vine.string().trim().optional(),
     price: vine.number().min(1),
     unit: vine.string().trim(),
     quantity: vine.number().min(1),
@@ -19,7 +19,7 @@ const productUpdateValidator = vine.compile(
   vine.object({
     name: vine.string().trim().optional(),
     nutritionInfo: vine.string().trim().optional(),
-    images: vine.array(vine.string().trim()).optional(),
+    image: vine.string().trim().optional(),
     price: vine.number().min(1).optional(),
     unit: vine.string().trim().optional(),
     quantity: vine.number().min(1).optional(),
@@ -64,7 +64,7 @@ export default class ProductsController {
       sellerId: user.id,
       name: payload.name,
       nutritionInfo: payload.nutritionInfo ?? null,
-      images: payload.images ?? [],
+      image: payload.image ?? null,
       price: payload.price,
       unit: payload.unit,
       quantity: payload.quantity,
@@ -92,7 +92,7 @@ export default class ProductsController {
 
     product.merge({
       ...payload,
-      images: payload.images ?? product.images,
+      image: payload.image ?? product.image,
       nutritionInfo: payload.nutritionInfo ?? product.nutritionInfo,
     })
     await product.save()

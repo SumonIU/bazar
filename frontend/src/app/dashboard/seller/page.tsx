@@ -7,6 +7,14 @@ import FormField from "@/components/form-field";
 import FormStatus from "@/components/form-status";
 import { apiFetch } from "@/lib/api";
 
+const FALLBACK_IMAGE =
+  "data:image/svg+xml;utf8," +
+  "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'>" +
+  "<rect width='100%' height='100%' fill='%23f2eee8'/>" +
+  "<text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle'" +
+  " fill='%23999898' font-size='10' font-family='Arial'>No image</text>" +
+  "</svg>";
+
 type DashboardStats = {
   activeListings: number;
   ordersToday: number;
@@ -34,6 +42,7 @@ type SellerProduct = {
   unit: string;
   quantity: number;
   status: "in_stock" | "out_of_stock";
+  image?: string | null;
 };
 
 export default function SellerDashboardPage() {
@@ -49,6 +58,9 @@ export default function SellerDashboardPage() {
   const [products, setProducts] = useState<SellerProduct[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
+  const [deletingProductId, setDeletingProductId] = useState<number | null>(
+    null,
+  );
 
   const loadDashboard = async () => {
     setIsLoadingDashboard(true);
@@ -81,6 +93,7 @@ export default function SellerDashboardPage() {
 
     try {
       const data = await apiFetch<SellerProduct[]>("seller/products");
+      console.log("Fetched products:", data);
       setProducts(data ?? []);
     } catch (error) {
       const message =
@@ -109,17 +122,13 @@ export default function SellerDashboardPage() {
     setStatus(null);
     setIsSubmitting(true);
 
-    const form = new FormData(event.currentTarget);
-    const imagesRaw = String(form.get("images") || "").trim();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const image = String(form.get("image") || "").trim();
     const payload = {
       name: String(form.get("name") || "").trim(),
       nutritionInfo: String(form.get("nutritionInfo") || "").trim() || null,
-      images: imagesRaw
-        ? imagesRaw
-            .split(",")
-            .map((item) => item.trim())
-            .filter(Boolean)
-        : [],
+      image: image || null,
       price: Number(form.get("price")),
       unit: String(form.get("unit") || "").trim(),
       quantity: Number(form.get("quantity")),
@@ -134,7 +143,7 @@ export default function SellerDashboardPage() {
       setStatus({ tone: "success", message: "Product created." });
       loadDashboard();
       loadProducts();
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (error) {
       const message =
         error && typeof error === "object" && "message" in error
@@ -143,6 +152,32 @@ export default function SellerDashboardPage() {
       setStatus({ tone: "error", message });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteProduct = async (productId: number) => {
+    if (!window.confirm("Delete this product?")) {
+      return;
+    }
+
+    setDeletingProductId(productId);
+    setStatus(null);
+
+    try {
+      await apiFetch(`products/${productId}`, {
+        method: "DELETE",
+      });
+      setStatus({ tone: "success", message: "Product deleted." });
+      loadDashboard();
+      loadProducts();
+    } catch (error) {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String(error.message)
+          : "Product deletion failed.";
+      setStatus({ tone: "error", message });
+    } finally {
+      setDeletingProductId(null);
     }
   };
 
@@ -228,6 +263,7 @@ export default function SellerDashboardPage() {
                       <th className="px-4 py-2">Price</th>
                       <th className="px-4 py-2">Quantity</th>
                       <th className="px-4 py-2">Status</th>
+                      <th className="px-4 py-2">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -237,10 +273,28 @@ export default function SellerDashboardPage() {
                         className="rounded-2xl bg-white shadow-[var(--shadow)]"
                       >
                         <td className="px-4 py-3">
-                          <p className="font-semibold">{product.name}</p>
-                          <p className="text-xs text-[var(--muted)]">
-                            ID #{product.id}
-                          </p>
+                          <div className="flex items-center gap-3">
+                            {product.image ? (
+                              <img
+                                src={product.image || FALLBACK_IMAGE}
+                                alt={product.name}
+                                onError={(event) => {
+                                  event.currentTarget.src = FALLBACK_IMAGE;
+                                }}
+                                className="h-10 w-10 rounded-lg border border-[var(--line)] object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--line)] text-xs text-[var(--muted)]">
+                                No image
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-semibold">{product.name}</p>
+                              <p className="text-xs text-[var(--muted)]">
+                                ID #{product.id}
+                              </p>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           BDT {product.price} / {product.unit}
@@ -250,6 +304,18 @@ export default function SellerDashboardPage() {
                           {product.status === "in_stock"
                             ? "In stock"
                             : "Out of stock"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProduct(product.id)}
+                            disabled={deletingProductId === product.id}
+                            className="rounded-full border border-[var(--line)] px-4 py-2 text-xs font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {deletingProductId === product.id
+                              ? "Deleting..."
+                              : "Delete"}
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -277,8 +343,8 @@ export default function SellerDashboardPage() {
                 placeholder="Optional"
               />
               <FormField
-                label="Images (comma separated URLs)"
-                name="images"
+                label="Image URL"
+                name="image"
                 placeholder="https://..."
               />
               <FormField

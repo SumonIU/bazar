@@ -16,11 +16,8 @@ export default class Product extends BaseModel {
   @column({ columnName: 'nutrition_info' })
   declare nutritionInfo: string | null
 
-  @column({
-    prepare: (value: string[] | null) => JSON.stringify(value ?? []),
-    consume: (value: string | null) => (value ? JSON.parse(value) : []),
-  })
-  declare images: string[]
+  @column({ columnName: 'images' })
+  declare image: string | null
 
   @column()
   declare price: number

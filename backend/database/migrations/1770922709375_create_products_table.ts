@@ -9,7 +9,7 @@ export default class extends BaseSchema {
       table.integer('seller_id').unsigned().references('id').inTable('users').onDelete('CASCADE')
       table.string('name').notNullable()
       table.text('nutrition_info').nullable()
-      table.json('images').nullable()
+      table.text('images').nullable()
       table.decimal('price', 10, 2).notNullable()
       table.string('unit').notNullable()
       table.integer('quantity').notNullable()
