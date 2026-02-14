@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 export default function SiteFooter() {
   return (
     <footer className="border-t border-[var(--line)] bg-[var(--panel)]/80">
@@ -9,12 +7,6 @@ export default function SiteFooter() {
           <p className="mt-2 text-sm text-[var(--muted)]">
             Built for local sellers, loved by local shoppers.
           </p>
-        </div>
-        <div className="flex flex-wrap gap-4 text-sm">
-          <Link href="/search">Browse</Link>
-          <Link href="/signup/customer">Customer</Link>
-          <Link href="/signup/seller">Seller</Link>
-          <Link href="/admin">Admin</Link>
         </div>
         <p className="text-xs text-[var(--muted)]">
           Powered by Bazar.com marketplace stack.
