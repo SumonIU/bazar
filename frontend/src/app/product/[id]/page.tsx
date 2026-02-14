@@ -336,7 +336,9 @@ export default function ProductPage() {
             <ul className="mt-4 space-y-3 text-sm text-[var(--muted)]">
               {product.reviews.map((review) => (
                 <li key={review.id}>
-                  {review.rating} stars -
+                  <span className="text-[var(--accent)]">
+                    {renderStars(review.rating)}
+                  </span>
                   {review.comment ? ` ${review.comment}` : " No comment"} -
                   {review.customer?.fullName ?? "Customer"}
                 </li>
@@ -350,4 +352,9 @@ export default function ProductPage() {
       <SiteFooter />
     </div>
   );
+}
+
+function renderStars(rating: number) {
+  const clamped = Math.max(0, Math.min(5, Math.round(rating)));
+  return "★".repeat(clamped) + "☆".repeat(5 - clamped);
 }
