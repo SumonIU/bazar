@@ -24,6 +24,7 @@ type ProductDetail = {
   description: string | null;
   image?: string | null;
   seller?: {
+    id: number;
     fullName: string;
   } | null;
   reviews?: Array<{
@@ -48,6 +49,50 @@ export default function ProductPage() {
   const [error, setError] = useState<string | null>(null);
   const [cartStatus, setCartStatus] = useState<string | null>(null);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState("5");
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewStatus, setReviewStatus] = useState<string | null>(null);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+  const loadProduct = async (
+    activeProductId: string,
+    canUpdate?: () => boolean,
+  ) => {
+    if (canUpdate && !canUpdate()) {
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const data = await apiFetch<ProductDetailApi>(
+        `products/${activeProductId}`,
+      );
+      const normalized = {
+        ...data,
+        image: data.image ?? data.images ?? null,
+      };
+      if (canUpdate && !canUpdate()) {
+        return;
+      }
+      setProduct(normalized);
+    } catch (fetchError) {
+      if (canUpdate && !canUpdate()) {
+        return;
+      }
+      const message =
+        fetchError && typeof fetchError === "object" && "message" in fetchError
+          ? String(fetchError.message)
+          : "Unable to load product details.";
+      setError(message);
+    } finally {
+      if (canUpdate && !canUpdate()) {
+        return;
+      }
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -60,43 +105,39 @@ export default function ProductPage() {
       };
     }
 
-    setIsLoading(true);
-    setError(null);
-
-    apiFetch<ProductDetailApi>(`products/${productId}`)
-      .then((data) => {
-        if (!isMounted) {
-          return;
-        }
-        const normalized = {
-          ...data,
-          image: data.image ?? data.images ?? null,
-        };
-        setProduct(normalized);
-      })
-      .catch((fetchError) => {
-        if (!isMounted) {
-          return;
-        }
-        const message =
-          fetchError &&
-          typeof fetchError === "object" &&
-          "message" in fetchError
-            ? String(fetchError.message)
-            : "Unable to load product details.";
-        setError(message);
-      })
-      .finally(() => {
-        if (!isMounted) {
-          return;
-        }
-        setIsLoading(false);
-      });
+    const canUpdate = () => isMounted;
+    loadProduct(String(productId), canUpdate).catch(() => {
+      if (!isMounted) {
+        return;
+      }
+    });
 
     return () => {
       isMounted = false;
     };
   }, [productId]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    apiFetch<{ user: { role: string } }>("auth/me")
+      .then(({ user }) => {
+        if (!isMounted) {
+          return;
+        }
+        setUserRole(user.role);
+      })
+      .catch(() => {
+        if (!isMounted) {
+          return;
+        }
+        setUserRole(null);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const nutritionText = product?.nutritionInfo
     ? `Nutrition info: ${product.nutritionInfo}.`
@@ -133,6 +174,60 @@ export default function ProductPage() {
       setCartStatus(message);
     } finally {
       setIsAddingToCart(false);
+    }
+  };
+
+  const handleSubmitReview = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    setReviewStatus(null);
+
+    if (!productId || !product?.seller?.id) {
+      setReviewStatus("Product details are incomplete.");
+      return;
+    }
+
+    const ratingValue = Number(reviewRating);
+    if (!Number.isFinite(ratingValue) || ratingValue < 1 || ratingValue > 5) {
+      setReviewStatus("Rating must be between 1 and 5.");
+      return;
+    }
+
+    setIsSubmittingReview(true);
+
+    try {
+      await apiFetch("reviews", {
+        method: "POST",
+        body: JSON.stringify({
+          productId: Number(productId),
+          sellerId: product.seller.id,
+          rating: ratingValue,
+          comment: reviewComment.trim() || null,
+        }),
+      });
+      setReviewStatus("Review submitted.");
+      setReviewRating("5");
+      setReviewComment("");
+      await loadProduct(String(productId));
+    } catch (submitError) {
+      const message =
+        submitError &&
+        typeof submitError === "object" &&
+        "status" in submitError
+          ? Number(submitError.status) === 401
+            ? "Please log in as a customer to leave a review."
+            : submitError && "message" in submitError
+              ? String(submitError.message)
+              : "Unable to submit review."
+          : submitError &&
+              typeof submitError === "object" &&
+              "message" in submitError
+            ? String(submitError.message)
+            : "Unable to submit review.";
+      setReviewStatus(message);
+    } finally {
+      setIsSubmittingReview(false);
     }
   };
 
@@ -194,6 +289,45 @@ export default function ProductPage() {
         </div>
         <div className="mt-10 rounded-3xl border border-[var(--line)] bg-white p-6 shadow-[var(--shadow)]">
           <h2 className="text-lg font-semibold">Reviews</h2>
+          {userRole === "customer" ? (
+            <form className="mt-4 grid gap-4" onSubmit={handleSubmitReview}>
+              <div className="grid gap-4 md:grid-cols-[140px_1fr] md:items-center">
+                <label className="text-sm font-medium">Rating</label>
+                <select
+                  className="w-full rounded-2xl border border-[var(--line)] bg-white px-4 py-3 text-sm"
+                  value={reviewRating}
+                  onChange={(event) => setReviewRating(event.target.value)}
+                >
+                  <option value="5">5 - Excellent</option>
+                  <option value="4">4 - Good</option>
+                  <option value="3">3 - Average</option>
+                  <option value="2">2 - Poor</option>
+                  <option value="1">1 - Bad</option>
+                </select>
+              </div>
+              <div className="grid gap-4 md:grid-cols-[140px_1fr]">
+                <label className="text-sm font-medium">Comment</label>
+                <textarea
+                  className="min-h-[110px] w-full rounded-2xl border border-[var(--line)] bg-white px-4 py-3 text-sm"
+                  placeholder="Share your experience (optional)"
+                  value={reviewComment}
+                  onChange={(event) => setReviewComment(event.target.value)}
+                />
+              </div>
+              {reviewStatus ? (
+                <p className="text-sm text-[var(--muted)]">{reviewStatus}</p>
+              ) : null}
+              <div>
+                <button
+                  type="submit"
+                  disabled={isSubmittingReview}
+                  className="rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSubmittingReview ? "Submitting..." : "Submit review"}
+                </button>
+              </div>
+            </form>
+          ) : null}
           {isLoading ? (
             <p className="mt-4 text-sm text-[var(--muted)]">
               Loading reviews...
