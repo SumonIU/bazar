@@ -67,4 +67,19 @@ export default class AdminController {
 
     return response.created({ user: sellerUser, sellerProfile })
   }
+
+  async recentReviews({ auth, response }: HttpContext) {
+    const user = auth.user
+    if (!user || user.role !== 'admin') {
+      return response.unauthorized({ message: 'Admin access only.' })
+    }
+
+    const reviews = await Review.query()
+      .preload('product')
+      .preload('customer')
+      .orderBy('created_at', 'desc')
+      .limit(5)
+
+    return response.ok(reviews)
+  }
 }

@@ -71,7 +71,42 @@ export default class SellersController {
       return response.notFound({ message: 'Seller not found.' })
     }
 
-    return seller
+    const productsResult = await Product.query()
+      .where('seller_id', seller.userId)
+      .count('* as total')
+
+    const ordersResult = await db
+      .from('order_items')
+      .join('products', 'order_items.product_id', 'products.id')
+      .join('orders', 'order_items.order_id', 'orders.id')
+      .where('products.seller_id', seller.userId)
+      .countDistinct('order_items.order_id as total')
+
+    const ratingResult = await Review.query().where('seller_id', seller.userId).avg('rating as avg')
+    const reviewsResult = await Review.query().where('seller_id', seller.userId).count('* as total')
+
+    const recentReviews = await Review.query()
+      .where('seller_id', seller.userId)
+      .preload('customer')
+      .orderBy('created_at', 'desc')
+      .limit(5)
+
+    const products = Number(productsResult[0].$extras.total ?? 0)
+    const orders = Number(ordersResult[0].total ?? 0)
+    const ratingRaw = ratingResult[0].$extras.avg
+    const rating = ratingRaw ? Number(ratingRaw) : 0
+    const reviews = Number(reviewsResult[0].$extras.total ?? 0)
+
+    return response.ok({
+      seller,
+      stats: {
+        products,
+        orders,
+        rating,
+        reviews,
+      },
+      recentReviews,
+    })
   }
 
   async updateProfile({ auth, request, response }: HttpContext) {

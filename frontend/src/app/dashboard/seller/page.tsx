@@ -92,7 +92,7 @@ export default function SellerDashboardPage() {
     setProductsError(null);
 
     try {
-      const data = await apiFetch<SellerProduct[]>("seller/products");
+      const data = await apiFetch<SellerProductApi[]>("seller/products");
       console.log("Fetched products:", data);
       setProducts(data ?? []);
     } catch (error) {
@@ -276,11 +276,8 @@ export default function SellerDashboardPage() {
                           <div className="flex items-center gap-3">
                             {product.image ? (
                               <img
-                                src={product.image || FALLBACK_IMAGE}
+                                src={product.image}
                                 alt={product.name}
-                                onError={(event) => {
-                                  event.currentTarget.src = FALLBACK_IMAGE;
-                                }}
                                 className="h-10 w-10 rounded-lg border border-[var(--line)] object-cover"
                               />
                             ) : (

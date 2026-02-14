@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import { DateTime } from 'luxon'
 import Product from '#models/product'
+import SellerProfile from '#models/seller_profile'
 
 const productValidator = vine.compile(
   vine.object({
@@ -40,6 +41,21 @@ export default class ProductsController {
     }
 
     return Product.query().where('seller_id', user.id).orderBy('created_at', 'desc')
+  }
+
+  async adminSellerProducts({ auth, params, response }: HttpContext) {
+    const user = auth.user
+    if (!user || user.role !== 'admin') {
+      return response.unauthorized({ message: 'Admin access only.' })
+    }
+
+    const sellerProfile = await SellerProfile.find(params.id)
+
+    if (!sellerProfile) {
+      return response.notFound({ message: 'Seller not found.' })
+    }
+
+    return Product.query().where('seller_id', sellerProfile.userId).orderBy('created_at', 'desc')
   }
 
   async show({ params, response }: HttpContext) {
@@ -107,6 +123,22 @@ export default class ProductsController {
     }
 
     const product = await Product.query().where('id', params.id).where('seller_id', user.id).first()
+
+    if (!product) {
+      return response.notFound({ message: 'Product not found.' })
+    }
+
+    await product.delete()
+    return response.ok({ message: 'Product deleted.' })
+  }
+
+  async adminDestroy({ auth, params, response }: HttpContext) {
+    const user = auth.user
+    if (!user || user.role !== 'admin') {
+      return response.unauthorized({ message: 'Admin access only.' })
+    }
+
+    const product = await Product.find(params.id)
 
     if (!product) {
       return response.notFound({ message: 'Product not found.' })

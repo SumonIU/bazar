@@ -55,6 +55,11 @@ router
     router.patch('orders/:id/status', [OrdersController, 'updateStatus']).use(middleware.auth())
 
     router.get('admin/stats', [AdminController, 'stats']).use(middleware.auth())
+    router.get('admin/reviews', [AdminController, 'recentReviews']).use(middleware.auth())
+    router
+      .get('admin/sellers/:id/products', [ProductsController, 'adminSellerProducts'])
+      .use(middleware.auth())
+    router.delete('admin/products/:id', [ProductsController, 'adminDestroy']).use(middleware.auth())
     router.post('admin/sellers', [AdminController, 'createSeller']).use(middleware.auth())
   })
   .prefix('api')

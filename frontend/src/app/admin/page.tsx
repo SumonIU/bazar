@@ -24,6 +24,27 @@ type SellerRow = {
   };
 };
 
+type AdminStats = {
+  sellers: number;
+  customers: number;
+  products: number;
+  reviews: number;
+};
+
+type AdminReview = {
+  id: number;
+  rating: number;
+  comment: string | null;
+  product?: {
+    name: string;
+  } | null;
+  customer?: {
+    fullName: string;
+  } | null;
+};
+
+const formatCount = (value: number) => value.toLocaleString();
+
 export default function AdminPage() {
   const router = useRouter();
   const [status, setStatus] = useState<{
@@ -35,6 +56,12 @@ export default function AdminPage() {
   const [isLoadingSellers, setIsLoadingSellers] = useState(true);
   const [sellersError, setSellersError] = useState<string | null>(null);
   const [sellers, setSellers] = useState<SellerRow[]>([]);
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const [recentReviews, setRecentReviews] = useState<AdminReview[]>([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(true);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -103,6 +130,93 @@ export default function AdminPage() {
     };
   }, [isCheckingAuth]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    if (isCheckingAuth) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    setIsLoadingStats(true);
+    setStatsError(null);
+
+    apiFetch<AdminStats>("admin/stats")
+      .then((data) => {
+        if (!isMounted) {
+          return;
+        }
+        setStats({
+          sellers: Number(data.sellers ?? 0),
+          customers: Number(data.customers ?? 0),
+          products: Number(data.products ?? 0),
+          reviews: Number(data.reviews ?? 0),
+        });
+      })
+      .catch((error) => {
+        if (!isMounted) {
+          return;
+        }
+        const message =
+          error && typeof error === "object" && "message" in error
+            ? String(error.message)
+            : "Unable to load admin stats.";
+        setStatsError(message);
+      })
+      .finally(() => {
+        if (!isMounted) {
+          return;
+        }
+        setIsLoadingStats(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isCheckingAuth]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (isCheckingAuth) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    setIsLoadingReviews(true);
+    setReviewsError(null);
+
+    apiFetch<AdminReview[]>("admin/reviews")
+      .then((data) => {
+        if (!isMounted) {
+          return;
+        }
+        setRecentReviews(data ?? []);
+      })
+      .catch((error) => {
+        if (!isMounted) {
+          return;
+        }
+        const message =
+          error && typeof error === "object" && "message" in error
+            ? String(error.message)
+            : "Unable to load recent reviews.";
+        setReviewsError(message);
+      })
+      .finally(() => {
+        if (!isMounted) {
+          return;
+        }
+        setIsLoadingReviews(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isCheckingAuth]);
+
   if (isCheckingAuth) {
     return null;
   }
@@ -152,16 +266,45 @@ export default function AdminPage() {
           Monitor sellers, customers, products, and reviews.
         </p>
         <div className="mt-8 grid gap-6 md:grid-cols-3">
-          <AdminCard title="Sellers" value="340" />
-          <AdminCard title="Customers" value="5,200" />
-          <AdminCard title="Flagged listings" value="12" />
+          <AdminCard
+            title="Sellers"
+            value={isLoadingStats ? "..." : formatCount(stats?.sellers ?? 0)}
+          />
+          <AdminCard
+            title="Customers"
+            value={isLoadingStats ? "..." : formatCount(stats?.customers ?? 0)}
+          />
+          <AdminCard
+            title="Products"
+            value={isLoadingStats ? "..." : formatCount(stats?.products ?? 0)}
+          />
         </div>
+        {statsError ? (
+          <p className="mt-4 text-sm text-red-600">{statsError}</p>
+        ) : null}
         <div className="mt-8 rounded-3xl border border-[var(--line)] bg-white p-6 shadow-[var(--shadow)]">
           <h2 className="text-lg font-semibold">Recent reviews</h2>
-          <ul className="mt-4 space-y-3 text-sm text-[var(--muted)]">
-            <li>FreshFish by Rahman - 5 stars - Great delivery speed.</li>
-            <li>GreenHarvest - 4 stars - Good quality.</li>
-          </ul>
+          {reviewsError ? (
+            <p className="mt-4 text-sm text-red-600">{reviewsError}</p>
+          ) : null}
+          {isLoadingReviews ? (
+            <p className="mt-4 text-sm text-[var(--muted)]">
+              Loading reviews...
+            </p>
+          ) : recentReviews.length === 0 ? (
+            <p className="mt-4 text-sm text-[var(--muted)]">No reviews yet.</p>
+          ) : (
+            <ul className="mt-4 space-y-3 text-sm text-[var(--muted)]">
+              {recentReviews.map((review) => (
+                <li key={review.id}>
+                  {review.product?.name ?? "Product"} by{" "}
+                  {review.customer?.fullName ?? "Customer"} - {review.rating}{" "}
+                  stars
+                  {review.comment ? ` - ${review.comment}` : ""}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="mt-8 rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -242,8 +385,7 @@ export default function AdminPage() {
         <div className="mt-8 rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
           <h2 className="text-lg font-semibold">Create seller account</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">
-            Admin-only creation for new sellers. This should call the admin API
-            endpoint when wired.
+            Admin-only creation for new sellers using the admin API endpoint.
           </p>
           <form
             className="mt-6 grid gap-4 md:grid-cols-2"
