@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import SearchPanel from "@/components/search-panel";
+import LocationSelector from "@/components/location-selector";
 import { apiFetch } from "@/lib/api";
 
 type SearchProduct = {
@@ -38,14 +40,47 @@ const parseFilterText = (value: string): FilterParams => {
 };
 
 export default function SearchPage() {
+  const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("");
+  const [division, setDivision] = useState("");
+  const [district, setDistrict] = useState("");
+  const [area, setArea] = useState("");
   const [results, setResults] = useState<SearchProduct[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const requestIdRef = useRef(0);
 
   const filterParams = useMemo(() => parseFilterText(filter), [filter]);
+
+  useEffect(() => {
+    setDivision(searchParams.get("division") ?? "");
+    setDistrict(searchParams.get("district") ?? "");
+    setArea(searchParams.get("area") ?? "");
+  }, [searchParams]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    apiFetch<{ user: { role: string } }>("auth/me")
+      .then(({ user }) => {
+        if (!isMounted) {
+          return;
+        }
+        setUserRole(user.role);
+      })
+      .catch(() => {
+        if (!isMounted) {
+          return;
+        }
+        setUserRole(null);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const fetchProducts = async () => {
     const requestId = requestIdRef.current + 1;
@@ -56,6 +91,9 @@ export default function SearchPage() {
 
     const params = new URLSearchParams();
     const trimmedQuery = query.trim();
+    const trimmedDivision = division.trim();
+    const trimmedDistrict = district.trim();
+    const trimmedArea = area.trim();
     if (trimmedQuery) {
       params.set("query", trimmedQuery);
     }
@@ -64,6 +102,15 @@ export default function SearchPage() {
     }
     if (filterParams.posted) {
       params.set("posted", filterParams.posted);
+    }
+    if (trimmedDivision) {
+      params.set("division", trimmedDivision);
+    }
+    if (trimmedDistrict) {
+      params.set("district", trimmedDistrict);
+    }
+    if (trimmedArea) {
+      params.set("area", trimmedArea);
     }
 
     const path = params.toString()
@@ -115,6 +162,38 @@ export default function SearchPage() {
             isSearching={isLoading}
           />
         </div>
+        {userRole === "customer" ? (
+          <div className="mt-10">
+            <div className="rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="font-serif text-2xl">Nearest products</h2>
+                  <p className="mt-2 text-sm text-[var(--muted)]">
+                    Filter by division, district, and area to see nearby items.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSearch}
+                  disabled={isLoading}
+                  className="rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isLoading ? "Searching..." : "Find nearest"}
+                </button>
+              </div>
+              <div className="mt-6">
+                <LocationSelector
+                  division={division}
+                  district={district}
+                  area={area}
+                  onDivisionChange={setDivision}
+                  onDistrictChange={setDistrict}
+                  onAreaChange={setArea}
+                />
+              </div>
+            </div>
+          </div>
+        ) : null}
         {error ? <p className="mt-6 text-sm text-red-600">{error}</p> : null}
         {isLoading ? (
           <p className="mt-6 text-sm text-[var(--muted)]">Loading results...</p>

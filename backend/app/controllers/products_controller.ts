@@ -31,9 +31,12 @@ const productUpdateValidator = vine.compile(
 
 export default class ProductsController {
   async index({ request }: HttpContext) {
-    const { query, maxPrice, posted } = request.qs()
+    const { query, maxPrice, posted, division, district, area } = request.qs()
     const searchTerm = typeof query === 'string' ? query.trim() : ''
     const maxPriceNumber = Number(maxPrice)
+    const divisionFilter = typeof division === 'string' ? division.trim() : ''
+    const districtFilter = typeof district === 'string' ? district.trim() : ''
+    const areaFilter = typeof area === 'string' ? area.trim() : ''
 
     const productsQuery = Product.query()
       .where('status', 'in_stock')
@@ -53,6 +56,22 @@ export default class ProductsController {
             profileQuery.orWhereILike('district', `%${searchTerm}%`)
             profileQuery.orWhereILike('area', `%${searchTerm}%`)
           })
+        })
+      })
+    }
+
+    if (divisionFilter || districtFilter || areaFilter) {
+      productsQuery.whereHas('seller', (sellerQuery) => {
+        sellerQuery.whereHas('sellerProfile', (profileQuery) => {
+          if (divisionFilter) {
+            profileQuery.whereILike('division', `%${divisionFilter}%`)
+          }
+          if (districtFilter) {
+            profileQuery.whereILike('district', `%${districtFilter}%`)
+          }
+          if (areaFilter) {
+            profileQuery.whereILike('area', `%${areaFilter}%`)
+          }
         })
       })
     }

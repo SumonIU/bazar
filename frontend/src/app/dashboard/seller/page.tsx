@@ -210,14 +210,6 @@ export default function SellerDashboardPage() {
               }
             />
           </div>
-          <div className="rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
-            <h2 className="text-lg font-semibold">Quick actions</h2>
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <ActionButton label="Post new item" />
-              <ActionButton label="Update inventory" />
-              <ActionButton label="View reviews" />
-            </div>
-          </div>
           <div className="rounded-3xl border border-[var(--line)] bg-white p-6 shadow-[var(--shadow)]">
             <h2 className="text-lg font-semibold">Recent items</h2>
             {isLoadingDashboard ? (
@@ -374,16 +366,5 @@ function DashboardCard({ title, value }: { title: string; value: string }) {
       <p className="text-sm text-[var(--muted)]">{title}</p>
       <p className="mt-3 text-2xl font-semibold">{value}</p>
     </div>
-  );
-}
-
-function ActionButton({ label }: { label: string }) {
-  return (
-    <button
-      type="button"
-      className="rounded-2xl border border-[var(--line)] bg-white px-4 py-3 text-sm font-medium"
-    >
-      {label}
-    </button>
   );
 }
