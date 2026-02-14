@@ -19,7 +19,10 @@ export default class AuthMiddleware {
       guards?: (keyof Authenticators)[]
     } = {}
   ) {
-    await ctx.auth.authenticateUsing(options.guards, { loginRoute: this.redirectTo })
+    const isApiRequest = ctx.request.url().startsWith('/api')
+    const authOptions = isApiRequest ? undefined : { loginRoute: this.redirectTo }
+
+    await ctx.auth.authenticateUsing(options.guards, authOptions)
     return next()
   }
 }

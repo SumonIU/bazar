@@ -2,11 +2,27 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import FormField from "@/components/form-field";
 import FormStatus from "@/components/form-status";
 import { apiFetch } from "@/lib/api";
+
+type SellerRow = {
+  id: number;
+  userId: number;
+  shopName: string;
+  shopId: string;
+  division: string;
+  district: string;
+  area: string;
+  user: {
+    fullName: string;
+    email: string | null;
+    phone: string | null;
+  };
+};
 
 export default function AdminPage() {
   const router = useRouter();
@@ -16,6 +32,9 @@ export default function AdminPage() {
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isLoadingSellers, setIsLoadingSellers] = useState(true);
+  const [sellersError, setSellersError] = useState<string | null>(null);
+  const [sellers, setSellers] = useState<SellerRow[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -42,6 +61,47 @@ export default function AdminPage() {
       isMounted = false;
     };
   }, [router]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (isCheckingAuth) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    setIsLoadingSellers(true);
+    setSellersError(null);
+
+    apiFetch<SellerRow[]>("sellers")
+      .then((data) => {
+        if (!isMounted) {
+          return;
+        }
+        setSellers(data);
+      })
+      .catch((error) => {
+        if (!isMounted) {
+          return;
+        }
+        const message =
+          error && typeof error === "object" && "message" in error
+            ? String(error.message)
+            : "Unable to load sellers.";
+        setSellersError(message);
+      })
+      .finally(() => {
+        if (!isMounted) {
+          return;
+        }
+        setIsLoadingSellers(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isCheckingAuth]);
 
   if (isCheckingAuth) {
     return null;
@@ -101,6 +161,82 @@ export default function AdminPage() {
             <li>FreshFish by Rahman - 5 stars - Great delivery speed.</li>
             <li>GreenHarvest - 4 stars - Good quality.</li>
           </ul>
+        </div>
+        <div className="mt-8 rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Seller list</h2>
+            <span className="text-sm text-[var(--muted)]">
+              {isLoadingSellers
+                ? "Loading sellers..."
+                : `${sellers.length} sellers`}
+            </span>
+          </div>
+          {sellersError ? (
+            <p className="mt-4 text-sm text-red-600">{sellersError}</p>
+          ) : null}
+          {!isLoadingSellers && !sellersError && sellers.length === 0 ? (
+            <p className="mt-4 text-sm text-[var(--muted)]">
+              No sellers found.
+            </p>
+          ) : null}
+          {sellers.length > 0 ? (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-widest text-[var(--muted)]">
+                    <th className="px-4 py-2">Shop</th>
+                    <th className="px-4 py-2">Seller</th>
+                    <th className="px-4 py-2">Contact</th>
+                    <th className="px-4 py-2">Location</th>
+                    <th className="px-4 py-2">View</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sellers.map((seller) => (
+                    <tr
+                      key={seller.id}
+                      className="rounded-2xl bg-white shadow-[var(--shadow)]"
+                    >
+                      <td className="px-4 py-3">
+                        <p className="font-semibold">{seller.shopName}</p>
+                        <p className="text-xs text-[var(--muted)]">
+                          {seller.shopId}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium">{seller.user.fullName}</p>
+                        <p className="text-xs text-[var(--muted)]">
+                          ID #{seller.userId}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p>{seller.user.phone ?? "Not provided"}</p>
+                        <p className="text-xs text-[var(--muted)]">
+                          {seller.user.email ?? "No email"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p>
+                          {seller.area}, {seller.district}
+                        </p>
+                        <p className="text-xs text-[var(--muted)]">
+                          {seller.division}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/seller/${seller.id}`}
+                          className="rounded-full border border-[var(--line)] px-4 py-2 text-xs font-semibold"
+                        >
+                          View
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </div>
         <div className="mt-8 rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
           <h2 className="text-lg font-semibold">Create seller account</h2>

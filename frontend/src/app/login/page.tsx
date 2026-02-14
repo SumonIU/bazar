@@ -30,17 +30,21 @@ export default function LoginPage() {
       : { phone: identifier, password };
 
     try {
-      const result = await apiFetch<{ user: { role: string } }>("auth/login", {
+      const result = await apiFetch<{
+        user: { role: string };
+        redirectTo?: string;
+      }>("auth/login", {
         method: "POST",
         body: JSON.stringify(payload),
       });
       const role = result.user.role;
       const destination =
-        role === "admin"
+        result.redirectTo ??
+        (role === "admin"
           ? "/admin"
           : role === "seller"
             ? "/dashboard/seller"
-            : "/";
+            : "/");
       router.push(destination);
       setStatus({ tone: "success", message: "Logged in successfully." });
       event.currentTarget.reset();

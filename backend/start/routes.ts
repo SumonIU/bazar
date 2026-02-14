@@ -30,10 +30,12 @@ router
 
     router.get('sellers', [SellersController, 'index'])
     router.get('sellers/:id', [SellersController, 'show'])
+    router.get('seller/dashboard', [SellersController, 'dashboard']).use(middleware.auth())
     router.put('sellers/profile', [SellersController, 'updateProfile']).use(middleware.auth())
 
     router.get('products', [ProductsController, 'index'])
     router.get('products/:id', [ProductsController, 'show'])
+    router.get('seller/products', [ProductsController, 'sellerIndex']).use(middleware.auth())
     router.post('products', [ProductsController, 'store']).use(middleware.auth())
     router.put('products/:id', [ProductsController, 'update']).use(middleware.auth())
     router.delete('products/:id', [ProductsController, 'destroy']).use(middleware.auth())

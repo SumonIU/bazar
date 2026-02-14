@@ -1,11 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import FormField from "@/components/form-field";
 import FormStatus from "@/components/form-status";
 import { apiFetch } from "@/lib/api";
+
+type DashboardStats = {
+  activeListings: number;
+  ordersToday: number;
+  rating: number;
+};
+
+type DashboardItem = {
+  id: number;
+  name: string;
+  price: number;
+  unit: string;
+  quantity: number;
+  status: "in_stock" | "out_of_stock";
+};
+
+type DashboardResponse = {
+  stats: DashboardStats;
+  recentItems: DashboardItem[];
+};
+
+type SellerProduct = {
+  id: number;
+  name: string;
+  price: number;
+  unit: string;
+  quantity: number;
+  status: "in_stock" | "out_of_stock";
+};
 
 export default function SellerDashboardPage() {
   const [status, setStatus] = useState<{
@@ -13,6 +42,67 @@ export default function SellerDashboardPage() {
     message: string;
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentItems, setRecentItems] = useState<DashboardItem[]>([]);
+  const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const [products, setProducts] = useState<SellerProduct[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
+
+  const loadDashboard = async () => {
+    setIsLoadingDashboard(true);
+    setDashboardError(null);
+
+    try {
+      const data = await apiFetch<DashboardResponse>("seller/dashboard");
+      setStats(data.stats);
+      setRecentItems(data.recentItems ?? []);
+    } catch (error) {
+      const message =
+        error && typeof error === "object" && "status" in error
+          ? Number(error.status) === 401
+            ? "Please log in as a seller to view the dashboard."
+            : error && "message" in error
+              ? String(error.message)
+              : "Unable to load dashboard data."
+          : error && typeof error === "object" && "message" in error
+            ? String(error.message)
+            : "Unable to load dashboard data.";
+      setDashboardError(message);
+    } finally {
+      setIsLoadingDashboard(false);
+    }
+  };
+
+  const loadProducts = async () => {
+    setIsLoadingProducts(true);
+    setProductsError(null);
+
+    try {
+      const data = await apiFetch<SellerProduct[]>("seller/products");
+      setProducts(data ?? []);
+    } catch (error) {
+      const message =
+        error && typeof error === "object" && "status" in error
+          ? Number(error.status) === 401
+            ? "Please log in as a seller to view products."
+            : error && "message" in error
+              ? String(error.message)
+              : "Unable to load products."
+          : error && typeof error === "object" && "message" in error
+            ? String(error.message)
+            : "Unable to load products.";
+      setProductsError(message);
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboard();
+    loadProducts();
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -42,6 +132,8 @@ export default function SellerDashboardPage() {
         body: JSON.stringify(payload),
       });
       setStatus({ tone: "success", message: "Product created." });
+      loadDashboard();
+      loadProducts();
       event.currentTarget.reset();
     } catch (error) {
       const message =
@@ -60,10 +152,28 @@ export default function SellerDashboardPage() {
       <main className="mx-auto w-full max-w-6xl px-6 py-16">
         <div className="flex flex-col gap-6">
           <h1 className="font-serif text-3xl">Seller dashboard</h1>
+          {dashboardError ? (
+            <p className="text-sm text-red-600">{dashboardError}</p>
+          ) : null}
           <div className="grid gap-6 md:grid-cols-3">
-            <DashboardCard title="Active listings" value="28" />
-            <DashboardCard title="Orders today" value="12" />
-            <DashboardCard title="Rating" value="4.8" />
+            <DashboardCard
+              title="Active listings"
+              value={
+                isLoadingDashboard ? "..." : String(stats?.activeListings ?? 0)
+              }
+            />
+            <DashboardCard
+              title="Orders today"
+              value={
+                isLoadingDashboard ? "..." : String(stats?.ordersToday ?? 0)
+              }
+            />
+            <DashboardCard
+              title="Rating"
+              value={
+                isLoadingDashboard ? "..." : (stats?.rating ?? 0).toFixed(1)
+              }
+            />
           </div>
           <div className="rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
             <h2 className="text-lg font-semibold">Quick actions</h2>
@@ -75,11 +185,78 @@ export default function SellerDashboardPage() {
           </div>
           <div className="rounded-3xl border border-[var(--line)] bg-white p-6 shadow-[var(--shadow)]">
             <h2 className="text-lg font-semibold">Recent items</h2>
-            <ul className="mt-4 space-y-3 text-sm text-[var(--muted)]">
-              <li>Hilsa 1.2kg - BDT 1200 - In stock</li>
-              <li>Deshi Tomato - BDT 80/kg - Low stock</li>
-              <li>Organic Honey - BDT 950 - Out of stock</li>
-            </ul>
+            {isLoadingDashboard ? (
+              <p className="mt-4 text-sm text-[var(--muted)]">
+                Loading items...
+              </p>
+            ) : recentItems.length === 0 ? (
+              <p className="mt-4 text-sm text-[var(--muted)]">No items yet.</p>
+            ) : (
+              <ul className="mt-4 space-y-3 text-sm text-[var(--muted)]">
+                {recentItems.map((item) => (
+                  <li key={item.id}>
+                    {item.name} - BDT {item.price} / {item.unit} -
+                    {item.status === "in_stock" ? "In stock" : "Out of stock"}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Your products</h2>
+              <span className="text-sm text-[var(--muted)]">
+                {isLoadingProducts
+                  ? "Loading products..."
+                  : `${products.length} products`}
+              </span>
+            </div>
+            {productsError ? (
+              <p className="mt-4 text-sm text-red-600">{productsError}</p>
+            ) : null}
+            {!isLoadingProducts && !productsError && products.length === 0 ? (
+              <p className="mt-4 text-sm text-[var(--muted)]">
+                No products yet.
+              </p>
+            ) : null}
+            {products.length > 0 ? (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-sm">
+                  <thead>
+                    <tr className="text-left text-xs uppercase tracking-widest text-[var(--muted)]">
+                      <th className="px-4 py-2">Product</th>
+                      <th className="px-4 py-2">Price</th>
+                      <th className="px-4 py-2">Quantity</th>
+                      <th className="px-4 py-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.map((product) => (
+                      <tr
+                        key={product.id}
+                        className="rounded-2xl bg-white shadow-[var(--shadow)]"
+                      >
+                        <td className="px-4 py-3">
+                          <p className="font-semibold">{product.name}</p>
+                          <p className="text-xs text-[var(--muted)]">
+                            ID #{product.id}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3">
+                          BDT {product.price} / {product.unit}
+                        </td>
+                        <td className="px-4 py-3">{product.quantity}</td>
+                        <td className="px-4 py-3">
+                          {product.status === "in_stock"
+                            ? "In stock"
+                            : "Out of stock"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
           </div>
           <div className="rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
             <h2 className="text-lg font-semibold">Create product</h2>

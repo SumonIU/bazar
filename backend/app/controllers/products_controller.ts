@@ -33,6 +33,15 @@ export default class ProductsController {
     return Product.query().preload('seller')
   }
 
+  async sellerIndex({ auth, response }: HttpContext) {
+    const user = auth.user
+    if (!user || user.role !== 'seller') {
+      return response.unauthorized({ message: 'Seller access only.' })
+    }
+
+    return Product.query().where('seller_id', user.id).orderBy('created_at', 'desc')
+  }
+
   async show({ params, response }: HttpContext) {
     const product = await Product.query().where('id', params.id).preload('seller').first()
 

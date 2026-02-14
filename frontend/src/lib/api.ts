@@ -14,6 +14,7 @@ export async function apiFetch<T>(
     ...options,
     headers: {
       "Content-Type": "application/json",
+      Accept: "application/json",
       ...(options.headers ?? {}),
     },
     credentials: "include",
@@ -22,8 +23,19 @@ export async function apiFetch<T>(
   if (!response.ok) {
     let errorMessage = "Request failed";
     try {
-      const errorBody = (await response.json()) as { message?: string };
-      errorMessage = errorBody.message ?? errorMessage;
+      const contentType = response.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        const errorText = await response.text();
+        try {
+          const errorBody = JSON.parse(errorText) as { message?: string };
+          errorMessage = errorBody.message ?? errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+      } else {
+        const errorText = await response.text();
+        errorMessage = errorText || response.statusText || errorMessage;
+      }
     } catch {
       errorMessage = response.statusText || errorMessage;
     }
@@ -36,5 +48,27 @@ export async function apiFetch<T>(
     return {} as T;
   }
 
-  return (await response.json()) as T;
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    const error: ApiError = {
+      message: "Unexpected response from server.",
+      status: response.status,
+    };
+    throw error;
+  }
+
+  const responseText = await response.text();
+  if (!responseText) {
+    return {} as T;
+  }
+
+  try {
+    return JSON.parse(responseText) as T;
+  } catch {
+    const error: ApiError = {
+      message: "Invalid JSON response from server.",
+      status: response.status,
+    };
+    throw error;
+  }
 }

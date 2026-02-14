@@ -55,7 +55,10 @@ export default class AuthController {
     }
     await auth.use('web').login(user)
 
-    return response.ok({ user })
+    const redirectTo =
+      user.role === 'admin' ? '/admin' : user.role === 'seller' ? '/dashboard/seller' : '/'
+
+    return response.ok({ user, redirectTo })
   }
 
   async logout({ auth, response }: HttpContext) {
