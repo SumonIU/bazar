@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import FormField from "@/components/form-field";
@@ -20,6 +21,7 @@ type CartItem = {
 };
 
 export default function CartPage() {
+  const router = useRouter();
   const [status, setStatus] = useState<{
     tone: "success" | "error";
     message: string;
@@ -28,6 +30,7 @@ export default function CartPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(true);
   const [itemsError, setItemsError] = useState<string | null>(null);
+  const [removingItemId, setRemovingItemId] = useState<number | null>(null);
 
   const total = items.reduce((sum, item) => {
     const price = Number(item.product?.price ?? 0);
@@ -74,13 +77,15 @@ export default function CartPage() {
     setStatus(null);
     setIsSubmitting(true);
 
+    const formElement = event.currentTarget;
+
     if (items.length === 0) {
       setStatus({ tone: "error", message: "Your cart is empty." });
       setIsSubmitting(false);
       return;
     }
 
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     const payload = {
       deliveryAddress: String(form.get("address") || "").trim(),
       phone: String(form.get("phone") || "").trim(),
@@ -99,8 +104,19 @@ export default function CartPage() {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      await Promise.all(
+        items.map((item) =>
+          apiFetch(`cart/${item.id}`, {
+            method: "DELETE",
+          }),
+        ),
+      );
       setStatus({ tone: "success", message: "Order placed." });
-      event.currentTarget.reset();
+      setItems([]);
+      formElement.reset();
+      window.setTimeout(() => {
+        router.push("/order/history");
+      }, 600);
     } catch (error) {
       const message =
         error && typeof error === "object" && "message" in error
@@ -109,6 +125,26 @@ export default function CartPage() {
       setStatus({ tone: "error", message });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleRemoveItem = async (itemId: number) => {
+    setRemovingItemId(itemId);
+    setItemsError(null);
+
+    try {
+      await apiFetch(`cart/${itemId}`, {
+        method: "DELETE",
+      });
+      setItems((prev) => prev.filter((item) => item.id !== itemId));
+    } catch (error) {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String(error.message)
+          : "Unable to remove item.";
+      setItemsError(message);
+    } finally {
+      setRemovingItemId(null);
     }
   };
 
@@ -134,10 +170,23 @@ export default function CartPage() {
             ) : (
               <ul className="mt-4 space-y-3 text-sm text-[var(--muted)]">
                 {items.map((item) => (
-                  <li key={item.id}>
-                    {item.product?.name ?? "Product"} x{item.quantity} - BDT{" "}
-                    {item.product?.price ?? 0}
-                    {item.product?.unit ? `/${item.product.unit}` : ""}
+                  <li
+                    key={item.id}
+                    className="flex items-center justify-between"
+                  >
+                    <span>
+                      {item.product?.name ?? "Product"} x{item.quantity} - BDT{" "}
+                      {item.product?.price ?? 0}
+                      {item.product?.unit ? `/${item.product.unit}` : ""}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(item.id)}
+                      disabled={removingItemId === item.id}
+                      className="rounded-full border border-[var(--line)] px-3 py-1 text-xs font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {removingItemId === item.id ? "Removing..." : "Remove"}
+                    </button>
                   </li>
                 ))}
               </ul>

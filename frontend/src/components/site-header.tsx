@@ -70,9 +70,20 @@ export default function SiteHeader() {
             {copy.products}
           </Link>
           {userRole === "customer" ? (
-            <Link href="/cart" className="hover:text-[var(--accent)]">
-              Cart
-            </Link>
+            <>
+              <Link href="/cart" className="hover:text-[var(--accent)]">
+                Cart
+              </Link>
+              <Link
+                href="/order/history"
+                className="hover:text-[var(--accent)]"
+              >
+                My orders
+              </Link>
+              <Link href="/account" className="hover:text-[var(--accent)]">
+                My account
+              </Link>
+            </>
           ) : null}
           <Link href="/" className="hover:text-[var(--accent)]">
             {copy.support}
