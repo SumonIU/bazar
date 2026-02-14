@@ -82,4 +82,25 @@ export default class AdminController {
 
     return response.ok(reviews)
   }
+
+  async deleteSeller({ auth, params, response }: HttpContext) {
+    const user = auth.user
+    if (!user || user.role !== 'admin') {
+      return response.unauthorized({ message: 'Admin access only.' })
+    }
+
+    const sellerProfile = await SellerProfile.query().where('id', params.id).first()
+    if (!sellerProfile) {
+      return response.notFound({ message: 'Seller not found.' })
+    }
+
+    const sellerUser = await User.findOrFail(sellerProfile.userId)
+    if (sellerUser.role !== 'seller') {
+      return response.badRequest({ message: 'User is not a seller.' })
+    }
+
+    await sellerUser.delete()
+
+    return response.noContent()
+  }
 }

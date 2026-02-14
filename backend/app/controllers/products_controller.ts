@@ -30,8 +30,44 @@ const productUpdateValidator = vine.compile(
 )
 
 export default class ProductsController {
-  async index() {
-    return Product.query().preload('seller')
+  async index({ request }: HttpContext) {
+    const { query, maxPrice, posted } = request.qs()
+    const searchTerm = typeof query === 'string' ? query.trim() : ''
+    const maxPriceNumber = Number(maxPrice)
+
+    const productsQuery = Product.query()
+      .where('status', 'in_stock')
+      .preload('seller', (sellerQuery) => {
+        sellerQuery.preload('sellerProfile')
+      })
+
+    if (searchTerm) {
+      productsQuery.where((builder) => {
+        builder.whereILike('products.name', `%${searchTerm}%`)
+        builder.orWhereILike('products.description', `%${searchTerm}%`)
+        builder.orWhereHas('seller', (sellerQuery) => {
+          sellerQuery.whereILike('full_name', `%${searchTerm}%`)
+          sellerQuery.orWhereHas('sellerProfile', (profileQuery) => {
+            profileQuery.whereILike('shop_name', `%${searchTerm}%`)
+            profileQuery.orWhereILike('division', `%${searchTerm}%`)
+            profileQuery.orWhereILike('district', `%${searchTerm}%`)
+            profileQuery.orWhereILike('area', `%${searchTerm}%`)
+          })
+        })
+      })
+    }
+
+    if (!Number.isNaN(maxPriceNumber) && maxPriceNumber > 0) {
+      productsQuery.where('price', '<=', maxPriceNumber)
+    }
+
+    if (typeof posted === 'string' && posted.toLowerCase() === 'today') {
+      const startOfDay = DateTime.local().startOf('day').toJSDate()
+      const endOfDay = DateTime.local().endOf('day').toJSDate()
+      productsQuery.whereBetween('posted_at', [startOfDay, endOfDay])
+    }
+
+    return productsQuery.orderBy('created_at', 'desc')
   }
 
   async sellerIndex({ auth, response }: HttpContext) {

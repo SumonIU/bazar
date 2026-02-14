@@ -59,6 +59,7 @@ router
     router
       .get('admin/sellers/:id/products', [ProductsController, 'adminSellerProducts'])
       .use(middleware.auth())
+    router.delete('admin/sellers/:id', [AdminController, 'deleteSeller']).use(middleware.auth())
     router.delete('admin/products/:id', [ProductsController, 'adminDestroy']).use(middleware.auth())
     router.post('admin/sellers', [AdminController, 'createSeller']).use(middleware.auth())
   })

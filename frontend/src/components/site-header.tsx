@@ -60,12 +60,16 @@ export default function SiteHeader() {
           </span>
         </div>
         <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
-          <Link href="/search" className="hover:text-[var(--accent)]">
-            {copy.explore}
-          </Link>
-          <Link href="/seller/001" className="hover:text-[var(--accent)]">
-            {copy.sellers}
-          </Link>
+          {userRole !== "seller" ? (
+            <Link href="/search" className="hover:text-[var(--accent)]">
+              {copy.explore}
+            </Link>
+          ) : null}
+          {userRole !== "seller" ? (
+            <Link href="/sellers" className="hover:text-[var(--accent)]">
+              {copy.sellers}
+            </Link>
+          ) : null}
           <Link href="/products" className="hover:text-[var(--accent)]">
             {copy.products}
           </Link>
@@ -85,9 +89,11 @@ export default function SiteHeader() {
               </Link>
             </>
           ) : null}
-          <Link href="/" className="hover:text-[var(--accent)]">
-            {copy.support}
-          </Link>
+          {userRole === "seller" ? (
+            <Link href="/account" className="hover:text-[var(--accent)]">
+              My account
+            </Link>
+          ) : null}
         </nav>
         <div className="flex items-center gap-3">
           <button

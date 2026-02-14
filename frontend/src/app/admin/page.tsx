@@ -55,6 +55,11 @@ export default function AdminPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isLoadingSellers, setIsLoadingSellers] = useState(true);
   const [sellersError, setSellersError] = useState<string | null>(null);
+  const [deletingSellerId, setDeletingSellerId] = useState<number | null>(null);
+  const [sellerActionStatus, setSellerActionStatus] = useState<{
+    tone: "success" | "error";
+    message: string;
+  } | null>(null);
   const [sellers, setSellers] = useState<SellerRow[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
@@ -130,6 +135,38 @@ export default function AdminPage() {
     };
   }, [isCheckingAuth]);
 
+  const refreshStats = async (isMounted?: () => boolean) => {
+    setIsLoadingStats(true);
+    setStatsError(null);
+
+    try {
+      const data = await apiFetch<AdminStats>("admin/stats");
+      if (isMounted && !isMounted()) {
+        return;
+      }
+      setStats({
+        sellers: Number(data.sellers ?? 0),
+        customers: Number(data.customers ?? 0),
+        products: Number(data.products ?? 0),
+        reviews: Number(data.reviews ?? 0),
+      });
+    } catch (error) {
+      if (isMounted && !isMounted()) {
+        return;
+      }
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String(error.message)
+          : "Unable to load admin stats.";
+      setStatsError(message);
+    } finally {
+      if (isMounted && !isMounted()) {
+        return;
+      }
+      setIsLoadingStats(false);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
 
@@ -139,37 +176,8 @@ export default function AdminPage() {
       };
     }
 
-    setIsLoadingStats(true);
-    setStatsError(null);
-
-    apiFetch<AdminStats>("admin/stats")
-      .then((data) => {
-        if (!isMounted) {
-          return;
-        }
-        setStats({
-          sellers: Number(data.sellers ?? 0),
-          customers: Number(data.customers ?? 0),
-          products: Number(data.products ?? 0),
-          reviews: Number(data.reviews ?? 0),
-        });
-      })
-      .catch((error) => {
-        if (!isMounted) {
-          return;
-        }
-        const message =
-          error && typeof error === "object" && "message" in error
-            ? String(error.message)
-            : "Unable to load admin stats.";
-        setStatsError(message);
-      })
-      .finally(() => {
-        if (!isMounted) {
-          return;
-        }
-        setIsLoadingStats(false);
-      });
+    const isMountedCheck = () => isMounted;
+    refreshStats(isMountedCheck);
 
     return () => {
       isMounted = false;
@@ -257,6 +265,34 @@ export default function AdminPage() {
     }
   };
 
+  const handleDeleteSeller = async (seller: SellerRow) => {
+    const confirmDelete = window.confirm(
+      `Delete ${seller.shopName}? This removes the seller account and all related data.`,
+    );
+    if (!confirmDelete) {
+      return;
+    }
+
+    setSellerActionStatus(null);
+    setSellersError(null);
+    setDeletingSellerId(seller.id);
+
+    try {
+      await apiFetch(`admin/sellers/${seller.id}`, { method: "DELETE" });
+      setSellers((prev) => prev.filter((item) => item.id !== seller.id));
+      setSellerActionStatus({ tone: "success", message: "Seller deleted." });
+      await refreshStats();
+    } catch (error) {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String(error.message)
+          : "Unable to delete seller.";
+      setSellerActionStatus({ tone: "error", message });
+    } finally {
+      setDeletingSellerId(null);
+    }
+  };
+
   return (
     <div>
       <SiteHeader />
@@ -318,6 +354,14 @@ export default function AdminPage() {
           {sellersError ? (
             <p className="mt-4 text-sm text-red-600">{sellersError}</p>
           ) : null}
+          {sellerActionStatus ? (
+            <div className="mt-3">
+              <FormStatus
+                tone={sellerActionStatus.tone}
+                message={sellerActionStatus.message}
+              />
+            </div>
+          ) : null}
           {!isLoadingSellers && !sellersError && sellers.length === 0 ? (
             <p className="mt-4 text-sm text-[var(--muted)]">
               No sellers found.
@@ -332,7 +376,7 @@ export default function AdminPage() {
                     <th className="px-4 py-2">Seller</th>
                     <th className="px-4 py-2">Contact</th>
                     <th className="px-4 py-2">Location</th>
-                    <th className="px-4 py-2">View</th>
+                    <th className="px-4 py-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -368,12 +412,24 @@ export default function AdminPage() {
                         </p>
                       </td>
                       <td className="px-4 py-3">
-                        <Link
-                          href={`/seller/${seller.id}`}
-                          className="rounded-full border border-[var(--line)] px-4 py-2 text-xs font-semibold"
-                        >
-                          View
-                        </Link>
+                        <div className="flex flex-wrap gap-2">
+                          <Link
+                            href={`/seller/${seller.id}`}
+                            className="rounded-full border border-[var(--line)] px-4 py-2 text-xs font-semibold transition hover:bg-[var(--panel)]"
+                          >
+                            View
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSeller(seller)}
+                            disabled={deletingSellerId === seller.id}
+                            className="rounded-full border border-red-200 px-4 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-70"
+                          >
+                            {deletingSellerId === seller.id
+                              ? "Deleting..."
+                              : "Delete"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

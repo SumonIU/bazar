@@ -34,6 +34,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<ProductListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -41,7 +42,34 @@ export default function ProductsPage() {
     setIsLoading(true);
     setError(null);
 
-    apiFetch<ProductListItemApi[]>("products")
+    apiFetch<{ user: { role: string } }>("auth/me")
+      .then(({ user }) => {
+        if (!isMounted) {
+          return;
+        }
+        setUserRole(user.role);
+      })
+      .catch(() => {
+        if (!isMounted) {
+          return;
+        }
+        setUserRole(null);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    setIsLoading(true);
+    setError(null);
+
+    const endpoint = userRole === "seller" ? "seller/products" : "products";
+
+    apiFetch<ProductListItemApi[]>(endpoint)
       .then((data) => {
         if (!isMounted) {
           return;
@@ -74,7 +102,7 @@ export default function ProductsPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [userRole]);
 
   return (
     <div>

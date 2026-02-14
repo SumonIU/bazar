@@ -24,12 +24,6 @@ export default function Hero() {
             >
               {copy.heroCta}
             </Link>
-            <Link
-              href="/signup/seller"
-              className="rounded-full border border-[var(--line)] px-6 py-3 text-sm font-semibold"
-            >
-              {copy.heroAlt}
-            </Link>
           </div>
           <div className="flex items-center gap-4 text-xs text-[var(--muted)]">
             <span>Payments: bKash, Nagad, Rocket, Card</span>
