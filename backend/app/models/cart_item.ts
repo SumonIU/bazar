@@ -20,7 +20,7 @@ export default class CartItem extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'customerId' })
   declare customer: BelongsTo<typeof User>
 
-  @belongsTo(() => Product)
+  @belongsTo(() => Product, { foreignKey: 'productId' })
   declare product: BelongsTo<typeof Product>
 
   @column.dateTime({ autoCreate: true, columnName: 'created_at' })

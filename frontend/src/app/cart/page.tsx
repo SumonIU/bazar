@@ -1,11 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import FormField from "@/components/form-field";
 import FormStatus from "@/components/form-status";
 import { apiFetch } from "@/lib/api";
+
+type CartItem = {
+  id: number;
+  productId: number;
+  quantity: number;
+  product?: {
+    id: number;
+    name: string;
+    price: number;
+    unit: string;
+  } | null;
+};
 
 export default function CartPage() {
   const [status, setStatus] = useState<{
@@ -13,24 +25,73 @@ export default function CartPage() {
     message: string;
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [isLoadingItems, setIsLoadingItems] = useState(true);
+  const [itemsError, setItemsError] = useState<string | null>(null);
+
+  const total = items.reduce((sum, item) => {
+    const price = Number(item.product?.price ?? 0);
+    return sum + price * item.quantity;
+  }, 0);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    setIsLoadingItems(true);
+    setItemsError(null);
+
+    apiFetch<CartItem[]>("cart")
+      .then((data) => {
+        if (!isMounted) {
+          return;
+        }
+        setItems(data ?? []);
+      })
+      .catch((error) => {
+        if (!isMounted) {
+          return;
+        }
+        const message =
+          error && typeof error === "object" && "message" in error
+            ? String(error.message)
+            : "Unable to load cart items.";
+        setItemsError(message);
+      })
+      .finally(() => {
+        if (!isMounted) {
+          return;
+        }
+        setIsLoadingItems(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setStatus(null);
     setIsSubmitting(true);
 
+    if (items.length === 0) {
+      setStatus({ tone: "error", message: "Your cart is empty." });
+      setIsSubmitting(false);
+      return;
+    }
+
     const form = new FormData(event.currentTarget);
     const payload = {
       deliveryAddress: String(form.get("address") || "").trim(),
       phone: String(form.get("phone") || "").trim(),
       paymentMethod: String(form.get("payment") || "").trim(),
-      items: [
-        {
-          productId: Number(form.get("productId")),
-          quantity: Number(form.get("quantity")),
-          unitPrice: Number(form.get("unitPrice")),
-        },
-      ],
+      items: items
+        .filter((item) => item.product)
+        .map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: Number(item.product?.price ?? 0),
+        })),
     };
 
     try {
@@ -59,19 +120,34 @@ export default function CartPage() {
         <div className="mt-8 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
           <div className="rounded-3xl border border-[var(--line)] bg-white p-6 shadow-[var(--shadow)]">
             <h2 className="text-lg font-semibold">Items</h2>
-            <ul className="mt-4 space-y-3 text-sm text-[var(--muted)]">
-              <li>Hilsa 1.2kg x1 - BDT 1200</li>
-              <li>Deshi Tomato x2 - BDT 160</li>
-            </ul>
+            {itemsError ? (
+              <p className="mt-4 text-sm text-red-600">{itemsError}</p>
+            ) : null}
+            {isLoadingItems ? (
+              <p className="mt-4 text-sm text-[var(--muted)]">
+                Loading items...
+              </p>
+            ) : items.length === 0 ? (
+              <p className="mt-4 text-sm text-[var(--muted)]">
+                Your cart is empty.
+              </p>
+            ) : (
+              <ul className="mt-4 space-y-3 text-sm text-[var(--muted)]">
+                {items.map((item) => (
+                  <li key={item.id}>
+                    {item.product?.name ?? "Product"} x{item.quantity} - BDT{" "}
+                    {item.product?.price ?? 0}
+                    {item.product?.unit ? `/${item.product.unit}` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <div className="rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
             <h2 className="text-lg font-semibold">Checkout</h2>
             <form className="mt-4 grid gap-4" onSubmit={handleSubmit}>
               <FormField label="Delivery address" name="address" />
               <FormField label="Phone number" name="phone" />
-              <FormField label="Product ID" name="productId" type="number" />
-              <FormField label="Quantity" name="quantity" type="number" />
-              <FormField label="Unit price" name="unitPrice" type="number" />
               <div>
                 <p className="text-sm font-medium">Payment method</p>
                 <div className="mt-2 grid gap-2 text-xs text-[var(--muted)]">
@@ -100,9 +176,12 @@ export default function CartPage() {
                 </div>
               </div>
               <FormStatus tone={status?.tone} message={status?.message} />
+              <p className="text-sm text-[var(--muted)]">
+                Total: BDT {total.toFixed(2)}
+              </p>
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isLoadingItems}
                 className="rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isSubmitting ? "Placing..." : "Place order"}

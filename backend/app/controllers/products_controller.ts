@@ -59,7 +59,11 @@ export default class ProductsController {
   }
 
   async show({ params, response }: HttpContext) {
-    const product = await Product.query().where('id', params.id).preload('seller').first()
+    const product = await Product.query()
+      .where('id', params.id)
+      .preload('seller')
+      .preload('reviews', (query) => query.preload('customer').orderBy('created_at', 'desc'))
+      .first()
 
     if (!product) {
       return response.notFound({ message: 'Product not found.' })

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import FormField from "@/components/form-field";
@@ -8,6 +9,7 @@ import FormStatus from "@/components/form-status";
 import { apiFetch } from "@/lib/api";
 
 export default function CustomerSignupPage() {
+  const router = useRouter();
   const [status, setStatus] = useState<{
     tone: "success" | "error";
     message: string;
@@ -19,7 +21,8 @@ export default function CustomerSignupPage() {
     setStatus(null);
     setIsSubmitting(true);
 
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const payload = {
       fullName: String(form.get("fullName") || "").trim(),
       phone: String(form.get("phone") || "").trim(),
@@ -32,8 +35,14 @@ export default function CustomerSignupPage() {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      setStatus({ tone: "success", message: "Customer account created." });
-      event.currentTarget.reset();
+      setStatus({
+        tone: "success",
+        message: "Customer account created. Redirecting...",
+      });
+      formElement.reset();
+      window.setTimeout(() => {
+        router.push("/products");
+      }, 800);
     } catch (error) {
       const message =
         error && typeof error === "object" && "message" in error

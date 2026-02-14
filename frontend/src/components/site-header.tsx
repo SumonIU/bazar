@@ -11,19 +11,25 @@ export default function SiteHeader() {
   const { copy, language, setLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
 
-    apiFetch("auth/me")
-      .then(() => {
+    apiFetch<{ user: { role: string } }>("auth/me")
+      .then(({ user }) => {
         if (isMounted) {
           setIsLoggedIn(true);
+          setUserRole(user.role);
+          setIsCheckingAuth(false);
         }
       })
       .catch(() => {
         if (isMounted) {
           setIsLoggedIn(false);
+          setUserRole(null);
+          setIsCheckingAuth(false);
         }
       });
 
@@ -37,6 +43,7 @@ export default function SiteHeader() {
       await apiFetch("auth/logout", { method: "POST" });
     } finally {
       setIsLoggedIn(false);
+      setUserRole(null);
       router.replace("/login");
     }
   };
@@ -59,9 +66,14 @@ export default function SiteHeader() {
           <Link href="/seller/001" className="hover:text-[var(--accent)]">
             {copy.sellers}
           </Link>
-          <Link href="/product/001" className="hover:text-[var(--accent)]">
+          <Link href="/products" className="hover:text-[var(--accent)]">
             {copy.products}
           </Link>
+          {userRole === "customer" ? (
+            <Link href="/cart" className="hover:text-[var(--accent)]">
+              Cart
+            </Link>
+          ) : null}
           <Link href="/" className="hover:text-[var(--accent)]">
             {copy.support}
           </Link>
@@ -89,7 +101,7 @@ export default function SiteHeader() {
             >
               Logout
             </button>
-          ) : (
+          ) : !isCheckingAuth ? (
             <>
               <Link
                 href="/login"
@@ -104,7 +116,7 @@ export default function SiteHeader() {
                 {copy.signup}
               </Link>
             </>
-          )}
+          ) : null}
         </div>
       </div>
     </header>
