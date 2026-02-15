@@ -38,10 +38,9 @@ export default class ProductsController {
     const districtFilter = typeof district === 'string' ? district.trim() : ''
     const areaFilter = typeof area === 'string' ? area.trim() : ''
 
-    const productsQuery = Product.query()
-      .preload('seller', (sellerQuery) => {
-        sellerQuery.preload('sellerProfile')
-      })
+    const productsQuery = Product.query().preload('seller', (sellerQuery) => {
+      sellerQuery.preload('sellerProfile')
+    })
 
     if (searchTerm) {
       productsQuery.where((builder) => {
@@ -119,9 +118,7 @@ export default class ProductsController {
       return response.notFound({ message: 'Seller not found.' })
     }
 
-    return Product.query()
-      .where('seller_id', sellerProfile.userId)
-      .orderBy('created_at', 'desc')
+    return Product.query().where('seller_id', sellerProfile.userId).orderBy('created_at', 'desc')
   }
 
   async show({ params, response }: HttpContext) {
