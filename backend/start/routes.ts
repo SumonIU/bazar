@@ -9,13 +9,14 @@
 
 import router from '@adonisjs/core/services/router'
 import { middleware } from '#start/kernel'
-import AuthController from '#controllers/auth_controller'
-import AdminController from '#controllers/admin_controller'
-import SellersController from '#controllers/sellers_controller'
-import ProductsController from '#controllers/products_controller'
-import ReviewsController from '#controllers/reviews_controller'
-import CartController from '#controllers/cart_controller'
-import OrdersController from '#controllers/orders_controller'
+
+const AuthController = () => import('#controllers/auth_controller')
+const AdminController = () => import('#controllers/admin_controller')
+const SellersController = () => import('#controllers/sellers_controller')
+const ProductsController = () => import('#controllers/products_controller')
+const ReviewsController = () => import('#controllers/reviews_controller')
+const CartController = () => import('#controllers/cart_controller')
+const OrdersController = () => import('#controllers/orders_controller')
 
 router.get('/', async () => {
   return { status: 'ok', service: 'bazar-api' }
