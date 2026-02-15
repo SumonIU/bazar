@@ -113,6 +113,19 @@ export default class ProductsController {
     return Product.query().where('seller_id', sellerProfile.userId).orderBy('created_at', 'desc')
   }
 
+  async sellerProductsPublic({ params, response }: HttpContext) {
+    const sellerProfile = await SellerProfile.find(params.id)
+
+    if (!sellerProfile) {
+      return response.notFound({ message: 'Seller not found.' })
+    }
+
+    return Product.query()
+      .where('seller_id', sellerProfile.userId)
+      .where('status', 'in_stock')
+      .orderBy('created_at', 'desc')
+  }
+
   async show({ params, response }: HttpContext) {
     const product = await Product.query()
       .where('id', params.id)

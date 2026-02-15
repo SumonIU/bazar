@@ -61,6 +61,7 @@ export default function SellerPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isRoleResolved, setIsRoleResolved] = useState(false);
   const [products, setProducts] = useState<SellerProduct[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
@@ -77,12 +78,14 @@ export default function SellerPage() {
           return;
         }
         setIsAdmin(user.role === "admin");
+        setIsRoleResolved(true);
       })
       .catch(() => {
         if (!isMounted) {
           return;
         }
         setIsAdmin(false);
+        setIsRoleResolved(true);
       });
 
     return () => {
@@ -96,6 +99,7 @@ export default function SellerPage() {
     if (!sellerId) {
       setError("Seller not found.");
       setIsLoading(false);
+      setIsLoadingProducts(false);
       return () => {
         isMounted = false;
       };
@@ -138,8 +142,7 @@ export default function SellerPage() {
   useEffect(() => {
     let isMounted = true;
 
-    if (!sellerId || !isAdmin) {
-      setIsLoadingProducts(false);
+    if (!sellerId || !isRoleResolved) {
       return () => {
         isMounted = false;
       };
@@ -148,7 +151,11 @@ export default function SellerPage() {
     setIsLoadingProducts(true);
     setProductsError(null);
 
-    apiFetch<SellerProduct[]>(`admin/sellers/${sellerId}/products`)
+    const endpoint = isAdmin
+      ? `admin/sellers/${sellerId}/products`
+      : `sellers/${sellerId}/products`;
+
+    apiFetch<SellerProduct[]>(endpoint)
       .then((data) => {
         if (!isMounted) {
           return;
@@ -177,7 +184,7 @@ export default function SellerPage() {
     return () => {
       isMounted = false;
     };
-  }, [sellerId, isAdmin]);
+  }, [sellerId, isAdmin, isRoleResolved]);
 
   const handleDeleteProduct = async (productId: number) => {
     if (!window.confirm("Delete this product?")) {
@@ -264,95 +271,117 @@ export default function SellerPage() {
             <p className="mt-4 text-sm text-[var(--muted)]">No reviews yet.</p>
           )}
         </div>
-        {isAdmin ? (
-          <div className="mt-10 rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">Seller products</h2>
-              <span className="text-sm text-[var(--muted)]">
-                {isLoadingProducts
-                  ? "Loading products..."
-                  : `${products.length} products`}
-              </span>
-            </div>
-            {productsError ? (
-              <p className="mt-4 text-sm text-red-600">{productsError}</p>
-            ) : null}
-            {!isLoadingProducts && !productsError && products.length === 0 ? (
-              <p className="mt-4 text-sm text-[var(--muted)]">
-                No products yet.
-              </p>
-            ) : null}
-            {products.length > 0 ? (
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-sm">
-                  <thead>
-                    <tr className="text-left text-xs uppercase tracking-widest text-[var(--muted)]">
-                      <th className="px-4 py-2">Product</th>
-                      <th className="px-4 py-2">Price</th>
-                      <th className="px-4 py-2">Quantity</th>
-                      <th className="px-4 py-2">Status</th>
-                      <th className="px-4 py-2">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {products.map((product) => (
-                      <tr
-                        key={product.id}
-                        className="rounded-2xl bg-white shadow-[var(--shadow)]"
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            {product.image ? (
-                              <img
-                                src={product.image || FALLBACK_IMAGE}
-                                alt={product.name}
-                                onError={(event) => {
-                                  event.currentTarget.src = FALLBACK_IMAGE;
-                                }}
-                                className="h-10 w-10 rounded-lg border border-[var(--line)] object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--line)] text-xs text-[var(--muted)]">
-                                No image
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-semibold">{product.name}</p>
-                              <p className="text-xs text-[var(--muted)]">
-                                ID #{product.id}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          BDT {product.price} / {product.unit}
-                        </td>
-                        <td className="px-4 py-3">{product.quantity}</td>
-                        <td className="px-4 py-3">
-                          {product.status === "in_stock"
-                            ? "In stock"
-                            : "Out of stock"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteProduct(product.id)}
-                            disabled={deletingProductId === product.id}
-                            className="rounded-full border border-[var(--line)] px-4 py-2 text-xs font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {deletingProductId === product.id
-                              ? "Deleting..."
-                              : "Delete"}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : null}
+        <div className="mt-10 rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Seller products</h2>
+            <span className="text-sm text-[var(--muted)]">
+              {isLoadingProducts
+                ? "Loading products..."
+                : `${products.length} products`}
+            </span>
           </div>
-        ) : null}
+          {productsError ? (
+            <p className="mt-4 text-sm text-red-600">{productsError}</p>
+          ) : null}
+          {!isLoadingProducts && !productsError && products.length === 0 ? (
+            <p className="mt-4 text-sm text-[var(--muted)]">No products yet.</p>
+          ) : null}
+          {products.length > 0 && !isAdmin ? (
+            <div className="mt-4 grid gap-6 md:grid-cols-3">
+              {products.map((product) => (
+                <article
+                  key={product.id}
+                  className="rounded-3xl border border-[var(--line)] bg-white p-5 shadow-[var(--shadow)]"
+                >
+                  <img
+                    src={product.image || FALLBACK_IMAGE}
+                    alt={product.name}
+                    onError={(event) => {
+                      event.currentTarget.src = FALLBACK_IMAGE;
+                    }}
+                    className="h-36 w-full rounded-2xl border border-[var(--line)] object-cover"
+                  />
+                  <h3 className="mt-3 text-lg font-semibold">{product.name}</h3>
+                  <p className="mt-2 text-xs text-[var(--muted)]">
+                    Available: {product.quantity} {product.unit}
+                  </p>
+                  <p className="mt-4 text-sm font-semibold text-[var(--accent-strong)]">
+                    BDT {product.price} / {product.unit}
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : null}
+          {products.length > 0 && isAdmin ? (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-widest text-[var(--muted)]">
+                    <th className="px-4 py-2">Product</th>
+                    <th className="px-4 py-2">Price</th>
+                    <th className="px-4 py-2">Quantity</th>
+                    <th className="px-4 py-2">Status</th>
+                    <th className="px-4 py-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {products.map((product) => (
+                    <tr
+                      key={product.id}
+                      className="rounded-2xl bg-white shadow-[var(--shadow)]"
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {product.image ? (
+                            <img
+                              src={product.image || FALLBACK_IMAGE}
+                              alt={product.name}
+                              onError={(event) => {
+                                event.currentTarget.src = FALLBACK_IMAGE;
+                              }}
+                              className="h-10 w-10 rounded-lg border border-[var(--line)] object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--line)] text-xs text-[var(--muted)]">
+                              No image
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-semibold">{product.name}</p>
+                            <p className="text-xs text-[var(--muted)]">
+                              ID #{product.id}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        BDT {product.price} / {product.unit}
+                      </td>
+                      <td className="px-4 py-3">{product.quantity}</td>
+                      <td className="px-4 py-3">
+                        {product.status === "in_stock"
+                          ? "In stock"
+                          : "Out of stock"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProduct(product.id)}
+                          disabled={deletingProductId === product.id}
+                          className="rounded-full border border-[var(--line)] px-4 py-2 text-xs font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {deletingProductId === product.id
+                            ? "Deleting..."
+                            : "Delete"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </div>
       </main>
       <SiteFooter />
     </div>

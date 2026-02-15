@@ -30,6 +30,7 @@ router
 
     router.get('sellers', [SellersController, 'index'])
     router.get('sellers/:id', [SellersController, 'show'])
+    router.get('sellers/:id/products', [ProductsController, 'sellerProductsPublic'])
     router.get('seller/dashboard', [SellersController, 'dashboard']).use(middleware.auth())
     router.put('sellers/profile', [SellersController, 'updateProfile']).use(middleware.auth())
 
