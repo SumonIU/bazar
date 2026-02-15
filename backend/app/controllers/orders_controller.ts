@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import Order from '#models/order'
 import OrderItem from '#models/order_item'
+import Product from '#models/product'
 
 const orderValidator = vine.compile(
   vine.object({
@@ -63,6 +64,18 @@ export default class OrdersController {
     }))
 
     await OrderItem.createMany(orderItems)
+
+    // Update product quantities and status
+    for (const item of payload.items) {
+      const product = await Product.find(item.productId)
+      if (product) {
+        product.quantity = Math.max(0, product.quantity - item.quantity)
+        if (product.quantity === 0) {
+          product.status = 'out_of_stock'
+        }
+        await product.save()
+      }
+    }
 
     return response.created({ order, items: orderItems })
   }

@@ -20,6 +20,7 @@ type ProductDetail = {
   price: number;
   unit: string;
   quantity: number;
+  status: "in_stock" | "out_of_stock";
   nutritionInfo: string | null;
   description: string | null;
   image?: string | null;
@@ -266,7 +267,13 @@ export default function ProductPage() {
                 Seller: {product?.seller?.fullName ?? "Seller"}
               </p>
               <p className="text-xs text-[var(--muted)]">
-                {product?.quantity ?? 0} in stock
+                {product?.status === "out_of_stock" ? (
+                  <span className="font-semibold text-red-600">
+                    Out of stock
+                  </span>
+                ) : (
+                  `${product?.quantity ?? 0} in stock`
+                )}
               </p>
             </div>
             {cartStatus ? (
@@ -276,7 +283,7 @@ export default function ProductPage() {
               <button
                 type="button"
                 onClick={handleAddToCart}
-                disabled={isAddingToCart}
+                disabled={isAddingToCart || product?.status === "out_of_stock"}
                 className="rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isAddingToCart ? "Adding..." : "Add to cart"}

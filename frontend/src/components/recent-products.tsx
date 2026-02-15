@@ -10,6 +10,7 @@ type RecentProduct = {
   image: string | null;
   price: number;
   unit: string;
+  status: "in_stock" | "out_of_stock";
   description: string | null;
 };
 
@@ -71,7 +72,7 @@ export default function RecentProducts() {
       {products.map((product) => (
         <article
           key={product.id}
-          className="rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]"
+          className="relative rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]"
         >
           {product.image ? (
             <img

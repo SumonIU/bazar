@@ -14,6 +14,7 @@ type SearchProduct = {
   name: string;
   price: number;
   unit: string;
+  status: 'in_stock' | 'out_of_stock';
   seller?: {
     fullName: string;
     sellerProfile?: {
@@ -219,7 +220,14 @@ function ResultCard({ product }: { product: SearchProduct }) {
     "Seller";
 
   return (
-    <article className="rounded-3xl border border-[var(--line)] bg-white p-5 shadow-[var(--shadow)]">
+    <article className="relative rounded-3xl border border-[var(--line)] bg-white p-5 shadow-[var(--shadow)]">
+      {product.status === 'out_of_stock' && (
+        <div className="absolute inset-0 rounded-3xl bg-black/40 flex items-center justify-center">
+          <span className="bg-red-600 text-white px-4 py-2 rounded-full text-sm font-semibold">
+            Out of stock
+          </span>
+        </div>
+      )}
       <h3 className="text-lg font-semibold">{product.name}</h3>
       <p className="mt-2 text-sm text-[var(--muted)]">{sellerName}</p>
       <p className="mt-3 text-sm font-semibold">

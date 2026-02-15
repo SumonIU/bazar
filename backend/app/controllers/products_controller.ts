@@ -39,7 +39,6 @@ export default class ProductsController {
     const areaFilter = typeof area === 'string' ? area.trim() : ''
 
     const productsQuery = Product.query()
-      .where('status', 'in_stock')
       .preload('seller', (sellerQuery) => {
         sellerQuery.preload('sellerProfile')
       })
@@ -122,7 +121,6 @@ export default class ProductsController {
 
     return Product.query()
       .where('seller_id', sellerProfile.userId)
-      .where('status', 'in_stock')
       .orderBy('created_at', 'desc')
   }
 

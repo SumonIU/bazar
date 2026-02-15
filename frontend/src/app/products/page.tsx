@@ -19,6 +19,7 @@ type ProductListItem = {
   name: string;
   price: number;
   unit: string;
+  status: "in_stock" | "out_of_stock";
   image?: string | null;
   seller?: {
     id: number;
@@ -131,7 +132,7 @@ export default function ProductsPage() {
             {products.map((product) => (
               <article
                 key={product.id}
-                className="rounded-3xl border border-[var(--line)] bg-white p-5 shadow-[var(--shadow)]"
+                className="relative rounded-3xl border border-[var(--line)] bg-white p-5 shadow-[var(--shadow)]"
               >
                 <div className="flex items-center gap-4">
                   <img
