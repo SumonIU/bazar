@@ -21,6 +21,10 @@ export default function AccountPage() {
   const [account, setAccount] = useState<AccountResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -34,6 +38,8 @@ export default function AccountPage() {
           return;
         }
         setAccount(data);
+        setFullName(data.user.fullName || "");
+        setPhone(data.user.phone || "");
       })
       .catch((fetchError) => {
         if (!isMounted) {
@@ -59,6 +65,38 @@ export default function AccountPage() {
     };
   }, []);
 
+  const handleSave = async () => {
+    setError(null);
+    setIsSaving(true);
+
+    try {
+      const response = await apiFetch<AccountResponse>("auth/me", {
+        method: "PUT",
+        body: JSON.stringify({
+          fullName,
+          phone,
+        }),
+      });
+
+      setAccount(response);
+      setIsEditing(false);
+    } catch (saveError) {
+      const message =
+        saveError && typeof saveError === "object" && "message" in saveError
+          ? String(saveError.message)
+          : "Failed to save changes.";
+      setError(message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setFullName(account?.user.fullName || "");
+    setPhone(account?.user.phone || "");
+  };
+
   const user = account?.user;
 
   return (
@@ -76,23 +114,108 @@ export default function AccountPage() {
               Loading account information...
             </p>
           ) : user ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              <AccountField label="Full name" value={user.fullName} />
-              <AccountField label="Role" value={user.role} />
-              <AccountField
-                label="Email"
-                value={user.email ?? "Not provided"}
-              />
-              <AccountField
-                label="Phone"
-                value={user.phone ?? "Not provided"}
-              />
-              <AccountField
-                label="Default address"
-                value={user.customerProfile?.defaultAddress ?? "Not provided"}
-                spanFull
-              />
-            </div>
+            <>
+              <div className="grid gap-4 md:grid-cols-2">
+                {isEditing ? (
+                  <>
+                    <div>
+                      <label className="text-xs uppercase tracking-widest text-[var(--muted)]">
+                        Full name
+                      </label>
+                      <input
+                        type="text"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        className="mt-2 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-medium focus:border-[var(--accent)] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase tracking-widest text-[var(--muted)]">
+                        Role
+                      </label>
+                      <p className="mt-2 text-sm font-medium">{user.role}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase tracking-widest text-[var(--muted)]">
+                        Email
+                      </label>
+                      <p className="mt-2 text-sm font-medium">
+                        {user.email ?? "Not provided"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase tracking-widest text-[var(--muted)]">
+                        Phone
+                      </label>
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="mt-2 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-medium focus:border-[var(--accent)] focus:outline-none"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="text-xs uppercase tracking-widest text-[var(--muted)]">
+                        Default address
+                      </label>
+                      <p className="mt-2 text-sm font-medium">
+                        {user.customerProfile?.defaultAddress ?? "Not provided"}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <AccountField label="Full name" value={user.fullName} />
+                    <AccountField label="Role" value={user.role} />
+                    <AccountField
+                      label="Email"
+                      value={user.email ?? "Not provided"}
+                    />
+                    <AccountField
+                      label="Phone"
+                      value={user.phone ?? "Not provided"}
+                    />
+                    <AccountField
+                      label="Default address"
+                      value={
+                        user.customerProfile?.defaultAddress ?? "Not provided"
+                      }
+                      spanFull
+                    />
+                  </>
+                )}
+              </div>
+              <div className="mt-6 flex flex-wrap gap-3">
+                {isEditing ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={isSaving}
+                      className="rounded-full border border-[var(--line)] bg-[var(--accent-strong)] px-6 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSaving ? "Saving..." : "Save changes"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      disabled={isSaving}
+                      className="rounded-full border border-[var(--line)] px-6 py-2 text-sm font-semibold transition hover:bg-[var(--panel)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="rounded-full border border-[var(--line)] px-6 py-2 text-sm font-semibold transition hover:bg-[var(--panel)]"
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
+            </>
           ) : (
             <p className="text-sm text-[var(--muted)]">
               No account information found.

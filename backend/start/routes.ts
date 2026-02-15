@@ -27,6 +27,7 @@ router
     router.post('auth/login', [AuthController, 'login'])
     router.post('auth/logout', [AuthController, 'logout']).use(middleware.auth())
     router.get('auth/me', [AuthController, 'me']).use(middleware.auth())
+    router.put('auth/me', [AuthController, 'updateProfile']).use(middleware.auth())
 
     router.get('sellers', [SellersController, 'index'])
     router.get('sellers/:id', [SellersController, 'show'])

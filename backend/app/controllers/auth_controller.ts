@@ -20,6 +20,13 @@ const loginValidator = vine.compile(
   })
 )
 
+const updateProfileValidator = vine.compile(
+  vine.object({
+    fullName: vine.string().trim().optional(),
+    phone: vine.string().trim().optional(),
+  })
+)
+
 export default class AuthController {
   async registerCustomer({ request, response }: HttpContext) {
     const payload = await request.validateUsing(registerCustomerValidator)
@@ -72,6 +79,28 @@ export default class AuthController {
       return response.unauthorized({ message: 'Unauthorized' })
     }
 
+    await user.load('sellerProfile')
+    await user.load('customerProfile')
+
+    return response.ok({ user })
+  }
+
+  async updateProfile({ auth, request, response }: HttpContext) {
+    const user = auth.user
+    if (!user) {
+      return response.unauthorized({ message: 'Unauthorized' })
+    }
+
+    const payload = await request.validateUsing(updateProfileValidator)
+
+    if (payload.fullName) {
+      user.fullName = payload.fullName
+    }
+    if (payload.phone) {
+      user.phone = payload.phone
+    }
+
+    await user.save()
     await user.load('sellerProfile')
     await user.load('customerProfile')
 

@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
-import FormField from "@/components/form-field";
-import FormStatus from "@/components/form-status";
 import { apiFetch } from "@/lib/api";
 
 const FALLBACK_IMAGE =
@@ -46,11 +44,6 @@ type SellerProduct = {
 };
 
 export default function SellerDashboardPage() {
-  const [status, setStatus] = useState<{
-    tone: "success" | "error";
-    message: string;
-  } | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentItems, setRecentItems] = useState<DashboardItem[]>([]);
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
@@ -117,57 +110,17 @@ export default function SellerDashboardPage() {
     loadProducts();
   }, []);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setStatus(null);
-    setIsSubmitting(true);
-
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-    const image = String(form.get("image") || "").trim();
-    const payload = {
-      name: String(form.get("name") || "").trim(),
-      nutritionInfo: String(form.get("nutritionInfo") || "").trim() || null,
-      image: image || null,
-      price: Number(form.get("price")),
-      unit: String(form.get("unit") || "").trim(),
-      quantity: Number(form.get("quantity")),
-      description: String(form.get("description") || "").trim() || null,
-    };
-
-    try {
-      await apiFetch("products", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      setStatus({ tone: "success", message: "Product created." });
-      loadDashboard();
-      loadProducts();
-      formElement.reset();
-    } catch (error) {
-      const message =
-        error && typeof error === "object" && "message" in error
-          ? String(error.message)
-          : "Product creation failed.";
-      setStatus({ tone: "error", message });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleDeleteProduct = async (productId: number) => {
     if (!window.confirm("Delete this product?")) {
       return;
     }
 
     setDeletingProductId(productId);
-    setStatus(null);
 
     try {
       await apiFetch(`products/${productId}`, {
         method: "DELETE",
       });
-      setStatus({ tone: "success", message: "Product deleted." });
       loadDashboard();
       loadProducts();
     } catch (error) {
@@ -175,7 +128,7 @@ export default function SellerDashboardPage() {
         error && typeof error === "object" && "message" in error
           ? String(error.message)
           : "Product deletion failed.";
-      setStatus({ tone: "error", message });
+      console.error(message);
     } finally {
       setDeletingProductId(null);
     }
@@ -312,46 +265,6 @@ export default function SellerDashboardPage() {
                 </table>
               </div>
             ) : null}
-          </div>
-          <div className="rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
-            <h2 className="text-lg font-semibold">Create product</h2>
-            <p className="mt-2 text-sm text-[var(--muted)]">
-              Sellers can add new listings here.
-            </p>
-            <form
-              className="mt-6 grid gap-4 md:grid-cols-2"
-              onSubmit={handleSubmit}
-            >
-              <FormField label="Item name" name="name" />
-              <FormField label="Unit" name="unit" placeholder="kg, pcs" />
-              <FormField label="Price" name="price" type="number" />
-              <FormField label="Quantity" name="quantity" type="number" />
-              <FormField
-                label="Nutrition info"
-                name="nutritionInfo"
-                placeholder="Optional"
-              />
-              <FormField
-                label="Image URL"
-                name="image"
-                placeholder="https://..."
-              />
-              <FormField
-                label="Description"
-                name="description"
-                placeholder="Optional"
-              />
-              <div className="md:col-span-2">
-                <FormStatus tone={status?.tone} message={status?.message} />
-              </div>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="mt-2 rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-70 md:col-span-2"
-              >
-                {isSubmitting ? "Creating..." : "Create product"}
-              </button>
-            </form>
           </div>
         </div>
       </main>

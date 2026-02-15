@@ -90,9 +90,17 @@ export default function SiteHeader() {
             </>
           ) : null}
           {userRole === "seller" ? (
-            <Link href="/account" className="hover:text-[var(--accent)]">
-              My account
-            </Link>
+            <>
+              <Link
+                href="/create-product"
+                className="hover:text-[var(--accent)]"
+              >
+                Create product
+              </Link>
+              <Link href="/account" className="hover:text-[var(--accent)]">
+                My account
+              </Link>
+            </>
           ) : null}
         </nav>
         <div className="flex items-center gap-3">
