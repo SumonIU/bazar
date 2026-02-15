@@ -85,7 +85,7 @@ export default function SellerDashboardPage() {
     setProductsError(null);
 
     try {
-      const data = await apiFetch<SellerProductApi[]>("seller/products");
+      const data = await apiFetch<SellerProduct[]>("seller/products");
       console.log("Fetched products:", data);
       setProducts(data ?? []);
     } catch (error) {
