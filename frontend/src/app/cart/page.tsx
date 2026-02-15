@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { jsPDF } from "jspdf";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import FormField from "@/components/form-field";
@@ -20,6 +21,47 @@ type CartItem = {
   } | null;
 };
 
+type OrderResponse = {
+  order: {
+    id: number;
+    status: string;
+    paymentMethod: string;
+    paymentStatus: string;
+    total: number;
+    deliveryAddress: string;
+    phone: string;
+    createdAt?: string;
+  };
+  items: Array<{
+    orderId: number;
+    productId: number;
+    quantity: number;
+    unitPrice: number;
+  }>;
+};
+
+type ReceiptItem = {
+  productId: number;
+  name: string;
+  unit: string | null;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+};
+
+type PlacedOrder = {
+  id: number;
+  status: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  total: number;
+  deliveryAddress: string;
+  phone: string;
+  createdAt?: string;
+  receiptDate: string;
+  items: ReceiptItem[];
+};
+
 export default function CartPage() {
   const router = useRouter();
   const [status, setStatus] = useState<{
@@ -31,6 +73,7 @@ export default function CartPage() {
   const [isLoadingItems, setIsLoadingItems] = useState(true);
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [removingItemId, setRemovingItemId] = useState<number | null>(null);
+  const [placedOrder, setPlacedOrder] = useState<PlacedOrder | null>(null);
 
   const total = items.reduce((sum, item) => {
     const price = Number(item.product?.price ?? 0);
@@ -76,6 +119,7 @@ export default function CartPage() {
     event.preventDefault();
     setStatus(null);
     setIsSubmitting(true);
+    setPlacedOrder(null);
 
     const formElement = event.currentTarget;
 
@@ -100,9 +144,25 @@ export default function CartPage() {
     };
 
     try {
-      await apiFetch("orders", {
+      const orderResponse = await apiFetch<OrderResponse>("orders", {
         method: "POST",
         body: JSON.stringify(payload),
+      });
+      const receiptItems: ReceiptItem[] = items.map((item) => {
+        const unitPrice = Number(item.product?.price ?? 0);
+        return {
+          productId: item.productId,
+          name: item.product?.name ?? `Product ${item.productId}`,
+          unit: item.product?.unit ?? null,
+          quantity: item.quantity,
+          unitPrice,
+          lineTotal: unitPrice * item.quantity,
+        };
+      });
+      setPlacedOrder({
+        ...orderResponse.order,
+        receiptDate: new Date().toISOString(),
+        items: receiptItems,
       });
       await Promise.all(
         items.map((item) =>
@@ -114,9 +174,6 @@ export default function CartPage() {
       setStatus({ tone: "success", message: "Order placed." });
       setItems([]);
       formElement.reset();
-      window.setTimeout(() => {
-        router.push("/order/history");
-      }, 600);
     } catch (error) {
       const message =
         error && typeof error === "object" && "message" in error
@@ -126,6 +183,59 @@ export default function CartPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleDownloadReceipt = () => {
+    if (!placedOrder) {
+      return;
+    }
+
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const left = 40;
+    const right = pageWidth - 40;
+    let y = 48;
+
+    const addLine = (text: string, size = 11, bold = false) => {
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      doc.setFontSize(size);
+      const wrapped = doc.splitTextToSize(text, right - left);
+      wrapped.forEach((line: string) => {
+        if (y > 780) {
+          doc.addPage();
+          y = 48;
+        }
+        doc.text(line, left, y);
+        y += size + 6;
+      });
+    };
+
+    addLine("Bazar.com - Order Receipt", 18, true);
+    y += 6;
+    addLine(`Order ID: ${placedOrder.id}`);
+    addLine(`Status: ${placedOrder.status}`);
+    addLine(
+      `Payment: ${placedOrder.paymentMethod} (${placedOrder.paymentStatus})`,
+    );
+    addLine(`Delivery address: ${placedOrder.deliveryAddress}`);
+    addLine(`Phone: ${placedOrder.phone}`);
+    addLine(`Date: ${new Date(placedOrder.receiptDate).toLocaleString()}`);
+    y += 4;
+    addLine("Items", 12, true);
+
+    placedOrder.items.forEach((item, index) => {
+      const unitLabel = item.unit ? `/${item.unit}` : "";
+      addLine(
+        `${index + 1}. ${item.name}${unitLabel} x${item.quantity} @ BDT ${item.unitPrice.toFixed(
+          2,
+        )} = BDT ${item.lineTotal.toFixed(2)}`,
+      );
+    });
+
+    y += 4;
+    addLine(`Total: BDT ${placedOrder.total.toFixed(2)}`, 12, true);
+
+    doc.save(`order-${placedOrder.id}.pdf`);
   };
 
   const handleRemoveItem = async (itemId: number) => {
@@ -225,6 +335,24 @@ export default function CartPage() {
                 </div>
               </div>
               <FormStatus tone={status?.tone} message={status?.message} />
+              {placedOrder ? (
+                <div className="grid gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDownloadReceipt}
+                    className="rounded-full border border-[var(--line)] px-5 py-2 text-sm font-semibold text-[var(--ink)]"
+                  >
+                    Download order PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => router.push("/order/history")}
+                    className="rounded-full border border-[var(--line)] px-5 py-2 text-sm font-semibold text-[var(--ink)]"
+                  >
+                    View order history
+                  </button>
+                </div>
+              ) : null}
               <p className="text-sm text-[var(--muted)]">
                 Total: BDT {total.toFixed(2)}
               </p>
