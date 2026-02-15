@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
-import FormField from "@/components/form-field";
-import FormStatus from "@/components/form-status";
 import { apiFetch } from "@/lib/api";
 
 type SellerRow = {
@@ -47,11 +45,6 @@ const formatCount = (value: number) => value.toLocaleString();
 
 export default function AdminPage() {
   const router = useRouter();
-  const [status, setStatus] = useState<{
-    tone: "success" | "error";
-    message: string;
-  } | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isLoadingSellers, setIsLoadingSellers] = useState(true);
   const [sellersError, setSellersError] = useState<string | null>(null);
@@ -229,42 +222,6 @@ export default function AdminPage() {
     return null;
   }
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setStatus(null);
-    setIsSubmitting(true);
-
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-    const payload = {
-      fullName: String(form.get("fullName") || "").trim(),
-      shopName: String(form.get("shopName") || "").trim(),
-      division: String(form.get("division") || "").trim(),
-      district: String(form.get("district") || "").trim(),
-      area: String(form.get("area") || "").trim(),
-      phone: String(form.get("phone") || "").trim(),
-      email: String(form.get("email") || "").trim(),
-      password: String(form.get("password") || "").trim(),
-    };
-
-    try {
-      await apiFetch("admin/sellers", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      setStatus({ tone: "success", message: "Seller account created." });
-      formElement.reset();
-    } catch (error) {
-      const message =
-        error && typeof error === "object" && "message" in error
-          ? String(error.message)
-          : "Seller creation failed.";
-      setStatus({ tone: "error", message });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleDeleteSeller = async (seller: SellerRow) => {
     const confirmDelete = window.confirm(
       `Delete ${seller.shopName}? This removes the seller account and all related data.`,
@@ -437,35 +394,6 @@ export default function AdminPage() {
               </table>
             </div>
           ) : null}
-        </div>
-        <div className="mt-8 rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
-          <h2 className="text-lg font-semibold">Create seller account</h2>
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            Admin-only creation for new sellers using the admin API endpoint.
-          </p>
-          <form
-            className="mt-6 grid gap-4 md:grid-cols-2"
-            onSubmit={handleSubmit}
-          >
-            <FormField label="Full name" name="fullName" />
-            <FormField label="Shop/Bazar name" name="shopName" />
-            <FormField label="Division" name="division" />
-            <FormField label="District" name="district" />
-            <FormField label="Area" name="area" />
-            <FormField label="Phone" name="phone" />
-            <FormField label="Email" name="email" type="email" />
-            <FormField label="Password" name="password" type="password" />
-            <div className="md:col-span-2">
-              <FormStatus tone={status?.tone} message={status?.message} />
-            </div>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="mt-2 rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-70 md:col-span-2"
-            >
-              {isSubmitting ? "Creating..." : "Create seller"}
-            </button>
-          </form>
         </div>
       </main>
       <SiteFooter />

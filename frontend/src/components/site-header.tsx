@@ -102,6 +102,19 @@ export default function SiteHeader() {
               </Link>
             </>
           ) : null}
+          {userRole === "admin" ? (
+            <>
+              <Link
+                href="/create-seller"
+                className="hover:text-[var(--accent)]"
+              >
+                Create seller
+              </Link>
+              <Link href="/account" className="hover:text-[var(--accent)]">
+                My account
+              </Link>
+            </>
+          ) : null}
         </nav>
         <div className="flex items-center gap-3">
           <button
