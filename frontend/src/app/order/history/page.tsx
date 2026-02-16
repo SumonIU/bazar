@@ -26,6 +26,9 @@ export default function OrderHistoryPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(
+    null,
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -64,6 +67,30 @@ export default function OrderHistoryPage() {
     };
   }, []);
 
+  const handleCancelOrder = async (orderId: number) => {
+    setCancellingOrderId(orderId);
+    setError(null);
+
+    try {
+      const updated = await apiFetch<Order>(`orders/${orderId}/cancel`, {
+        method: "PATCH",
+      });
+      setOrders((prev) =>
+        prev.map((order) => (order.id === orderId ? updated : order)),
+      );
+    } catch (cancelError) {
+      const message =
+        cancelError &&
+        typeof cancelError === "object" &&
+        "message" in cancelError
+          ? String(cancelError.message)
+          : "Unable to cancel order.";
+      setError(message);
+    } finally {
+      setCancellingOrderId(null);
+    }
+  };
+
   return (
     <div>
       <SiteHeader />
@@ -78,9 +105,26 @@ export default function OrderHistoryPage() {
           ) : (
             <ul className="space-y-3 text-sm text-[var(--muted)]">
               {orders.map((order) => (
-                <li key={order.id}>
-                  Order #{order.id} - {formatStatus(order.status)} - BDT{" "}
-                  {Number(order.total).toFixed(2)}
+                <li
+                  key={order.id}
+                  className="flex flex-wrap items-center gap-3"
+                >
+                  <span>
+                    Order #{order.id} - {formatStatus(order.status)} - BDT{" "}
+                    {Number(order.total).toFixed(2)}
+                  </span>
+                  {order.status === "pending" ? (
+                    <button
+                      type="button"
+                      onClick={() => handleCancelOrder(order.id)}
+                      disabled={cancellingOrderId === order.id}
+                      className="rounded-full border border-[var(--line)] px-3 py-1 text-xs font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {cancellingOrderId === order.id
+                        ? "Removing..."
+                        : "Remove"}
+                    </button>
+                  ) : null}
                 </li>
               ))}
             </ul>

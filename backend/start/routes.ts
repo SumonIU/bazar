@@ -56,6 +56,7 @@ router
     router.get('orders', [OrdersController, 'index']).use(middleware.auth())
     router.get('seller/orders', [OrdersController, 'sellerIndex']).use(middleware.auth())
     router.post('orders', [OrdersController, 'placeOrder']).use(middleware.auth())
+    router.patch('orders/:id/cancel', [OrdersController, 'cancel']).use(middleware.auth())
     router.patch('orders/:id/status', [OrdersController, 'updateStatus']).use(middleware.auth())
 
     router.get('admin/stats', [AdminController, 'stats']).use(middleware.auth())

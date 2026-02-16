@@ -154,12 +154,22 @@ export default function ProductsPage() {
                   <p className="text-sm font-semibold text-[var(--accent-strong)]">
                     BDT {product.price} / {product.unit}
                   </p>
-                  <Link
-                    href={`/product/${product.id}`}
-                    className="rounded-full border border-[var(--line)] px-4 py-2 text-xs font-semibold"
-                  >
-                    View item
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    {userRole === "seller" ? (
+                      <Link
+                        href={`/create-product?id=${product.id}`}
+                        className="rounded-full border border-[var(--line)] px-4 py-2 text-xs font-semibold"
+                      >
+                        Edit
+                      </Link>
+                    ) : null}
+                    <Link
+                      href={`/product/${product.id}`}
+                      className="rounded-full border border-[var(--line)] px-4 py-2 text-xs font-semibold"
+                    >
+                      View item
+                    </Link>
+                  </div>
                 </div>
               </article>
             ))}

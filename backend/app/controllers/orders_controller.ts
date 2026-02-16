@@ -38,11 +38,6 @@ export default class OrdersController {
           productQuery.where('seller_id', user.id)
         })
       })
-      .whereDoesntHave('items', (itemsQuery) => {
-        itemsQuery.whereHas('product', (productQuery) => {
-          productQuery.whereNot('seller_id', user.id)
-        })
-      })
       .preload('customer')
       .preload('items', (itemsQuery) => {
         itemsQuery
@@ -71,27 +66,34 @@ export default class OrdersController {
 
     const payload = await request.validateUsing(orderValidator)
 
-    const total = payload.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+    const ordersWithItems: Array<{ order: Order; items: OrderItem[] }> = []
 
-    const order = await Order.create({
-      customerId: user.id,
-      status: 'pending',
-      paymentMethod: payload.paymentMethod,
-      paymentStatus: 'pending',
-      total,
-      deliveryAddress: payload.deliveryAddress,
-      phone: payload.phone,
-      receiptUrl: null,
-    })
+    for (const item of payload.items) {
+      const quantity = Math.max(1, Math.floor(item.quantity))
 
-    const orderItems = payload.items.map((item) => ({
-      orderId: order.id,
-      productId: item.productId,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-    }))
+      for (let index = 0; index < quantity; index += 1) {
+        const total = item.unitPrice
+        const order = await Order.create({
+          customerId: user.id,
+          status: 'pending',
+          paymentMethod: payload.paymentMethod,
+          paymentStatus: 'pending',
+          total,
+          deliveryAddress: payload.deliveryAddress,
+          phone: payload.phone,
+          receiptUrl: null,
+        })
 
-    await OrderItem.createMany(orderItems)
+        const orderItem = await OrderItem.create({
+          orderId: order.id,
+          productId: item.productId,
+          quantity: 1,
+          unitPrice: item.unitPrice,
+        })
+
+        ordersWithItems.push({ order, items: [orderItem] })
+      }
+    }
 
     // Update product quantities and status
     for (const item of payload.items) {
@@ -105,7 +107,7 @@ export default class OrdersController {
       }
     }
 
-    return response.created({ order, items: orderItems })
+    return response.created({ orders: ordersWithItems })
   }
 
   async updateStatus({ auth, params, request, response }: HttpContext) {
@@ -129,12 +131,28 @@ export default class OrdersController {
       return response.unauthorized({ message: 'Seller access only.' })
     }
 
-    const hasOtherSeller = order.items.some((item) => item.product?.sellerId !== user.id)
-    if (hasOtherSeller) {
-      return response.unauthorized({ message: 'Order contains items from other sellers.' })
+    order.status = payload.status
+    await order.save()
+
+    return order
+  }
+
+  async cancel({ auth, params, response }: HttpContext) {
+    const user = auth.user
+    if (!user || user.role !== 'customer') {
+      return response.unauthorized({ message: 'Customer access only.' })
     }
 
-    order.status = payload.status
+    const order = await Order.query().where('id', params.id).where('customer_id', user.id).first()
+    if (!order) {
+      return response.notFound({ message: 'Order not found.' })
+    }
+
+    if (order.status !== 'pending') {
+      return response.badRequest({ message: 'Only pending orders can be cancelled.' })
+    }
+
+    order.status = 'cancelled'
     await order.save()
 
     return order

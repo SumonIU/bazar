@@ -21,22 +21,26 @@ type CartItem = {
   } | null;
 };
 
+type OrderSummary = {
+  id: number;
+  status: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  total: number;
+  deliveryAddress: string;
+  phone: string;
+  createdAt?: string;
+};
+
 type OrderResponse = {
-  order: {
-    id: number;
-    status: string;
-    paymentMethod: string;
-    paymentStatus: string;
-    total: number;
-    deliveryAddress: string;
-    phone: string;
-    createdAt?: string;
-  };
-  items: Array<{
-    orderId: number;
-    productId: number;
-    quantity: number;
-    unitPrice: number;
+  orders: Array<{
+    order: OrderSummary;
+    items: Array<{
+      orderId: number;
+      productId: number;
+      quantity: number;
+      unitPrice: number;
+    }>;
   }>;
 };
 
@@ -49,15 +53,7 @@ type ReceiptItem = {
   lineTotal: number;
 };
 
-type PlacedOrder = {
-  id: number;
-  status: string;
-  paymentMethod: string;
-  paymentStatus: string;
-  total: number;
-  deliveryAddress: string;
-  phone: string;
-  createdAt?: string;
+type PlacedOrder = OrderSummary & {
   receiptDate: string;
   items: ReceiptItem[];
 };
@@ -73,7 +69,15 @@ export default function CartPage() {
   const [isLoadingItems, setIsLoadingItems] = useState(true);
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [removingItemId, setRemovingItemId] = useState<number | null>(null);
-  const [placedOrder, setPlacedOrder] = useState<PlacedOrder | null>(null);
+  const [placedOrders, setPlacedOrders] = useState<PlacedOrder[]>([]);
+
+  const expandedItems = items.flatMap((item) => {
+    const count = Math.max(1, Math.floor(item.quantity));
+    return Array.from({ length: count }, (_, index) => ({
+      ...item,
+      unitIndex: index,
+    }));
+  });
 
   const total = items.reduce((sum, item) => {
     const price = Number(item.product?.price ?? 0);
@@ -119,7 +123,7 @@ export default function CartPage() {
     event.preventDefault();
     setStatus(null);
     setIsSubmitting(true);
-    setPlacedOrder(null);
+    setPlacedOrders([]);
 
     const formElement = event.currentTarget;
 
@@ -148,22 +152,28 @@ export default function CartPage() {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      const receiptItems: ReceiptItem[] = items.map((item) => {
-        const unitPrice = Number(item.product?.price ?? 0);
+      const receiptOrders = orderResponse.orders.map((entry) => {
+        const receiptItems: ReceiptItem[] = entry.items.map((item) => {
+          const cartItem = items.find(
+            (candidate) => candidate.productId === item.productId,
+          );
+          const unitPrice = Number(cartItem?.product?.price ?? item.unitPrice);
+          return {
+            productId: item.productId,
+            name: cartItem?.product?.name ?? `Product ${item.productId}`,
+            unit: cartItem?.product?.unit ?? null,
+            quantity: item.quantity,
+            unitPrice,
+            lineTotal: unitPrice * item.quantity,
+          };
+        });
         return {
-          productId: item.productId,
-          name: item.product?.name ?? `Product ${item.productId}`,
-          unit: item.product?.unit ?? null,
-          quantity: item.quantity,
-          unitPrice,
-          lineTotal: unitPrice * item.quantity,
+          ...entry.order,
+          receiptDate: new Date().toISOString(),
+          items: receiptItems,
         };
       });
-      setPlacedOrder({
-        ...orderResponse.order,
-        receiptDate: new Date().toISOString(),
-        items: receiptItems,
-      });
+      setPlacedOrders(receiptOrders);
       await Promise.all(
         items.map((item) =>
           apiFetch(`cart/${item.id}`, {
@@ -171,7 +181,7 @@ export default function CartPage() {
           }),
         ),
       );
-      setStatus({ tone: "success", message: "Order placed." });
+      setStatus({ tone: "success", message: "Orders placed." });
       setItems([]);
       formElement.reset();
     } catch (error) {
@@ -185,11 +195,7 @@ export default function CartPage() {
     }
   };
 
-  const handleDownloadReceipt = () => {
-    if (!placedOrder) {
-      return;
-    }
-
+  const handleDownloadReceipt = (order: PlacedOrder) => {
     const doc = new jsPDF({ unit: "pt", format: "a4" });
     const pageWidth = doc.internal.pageSize.getWidth();
     const left = 40;
@@ -212,18 +218,16 @@ export default function CartPage() {
 
     addLine("Bazar.com - Order Receipt", 18, true);
     y += 6;
-    addLine(`Order ID: ${placedOrder.id}`);
-    addLine(`Status: ${placedOrder.status}`);
-    addLine(
-      `Payment: ${placedOrder.paymentMethod} (${placedOrder.paymentStatus})`,
-    );
-    addLine(`Delivery address: ${placedOrder.deliveryAddress}`);
-    addLine(`Phone: ${placedOrder.phone}`);
-    addLine(`Date: ${new Date(placedOrder.receiptDate).toLocaleString()}`);
+    addLine(`Order ID: ${order.id}`);
+    addLine(`Status: ${order.status}`);
+    addLine(`Payment: ${order.paymentMethod} (${order.paymentStatus})`);
+    addLine(`Delivery address: ${order.deliveryAddress}`);
+    addLine(`Phone: ${order.phone}`);
+    addLine(`Date: ${new Date(order.receiptDate).toLocaleString()}`);
     y += 4;
     addLine("Items", 12, true);
 
-    placedOrder.items.forEach((item, index) => {
+    order.items.forEach((item, index) => {
       const unitLabel = item.unit ? `/${item.unit}` : "";
       addLine(
         `${index + 1}. ${item.name}${unitLabel} x${item.quantity} @ BDT ${item.unitPrice.toFixed(
@@ -233,20 +237,34 @@ export default function CartPage() {
     });
 
     y += 4;
-    addLine(`Total: BDT ${placedOrder.total.toFixed(2)}`, 12, true);
+    addLine(`Total: BDT ${order.total.toFixed(2)}`, 12, true);
 
-    doc.save(`order-${placedOrder.id}.pdf`);
+    doc.save(`order-${order.id}.pdf`);
   };
 
-  const handleRemoveItem = async (itemId: number) => {
-    setRemovingItemId(itemId);
+  const handleRemoveItem = async (item: CartItem) => {
+    setRemovingItemId(item.id);
     setItemsError(null);
 
     try {
-      await apiFetch(`cart/${itemId}`, {
-        method: "DELETE",
-      });
-      setItems((prev) => prev.filter((item) => item.id !== itemId));
+      if (item.quantity > 1) {
+        const updated = await apiFetch<CartItem>(`cart/${item.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ quantity: item.quantity - 1 }),
+        });
+        setItems((prev) =>
+          prev.map((entry) =>
+            entry.id === item.id
+              ? { ...entry, quantity: updated.quantity }
+              : entry,
+          ),
+        );
+      } else {
+        await apiFetch(`cart/${item.id}`, {
+          method: "DELETE",
+        });
+        setItems((prev) => prev.filter((entry) => entry.id !== item.id));
+      }
     } catch (error) {
       const message =
         error && typeof error === "object" && "message" in error
@@ -273,25 +291,25 @@ export default function CartPage() {
               <p className="mt-4 text-sm text-[var(--muted)]">
                 Loading items...
               </p>
-            ) : items.length === 0 ? (
+            ) : expandedItems.length === 0 ? (
               <p className="mt-4 text-sm text-[var(--muted)]">
                 Your cart is empty.
               </p>
             ) : (
               <ul className="mt-4 space-y-3 text-sm text-[var(--muted)]">
-                {items.map((item) => (
+                {expandedItems.map((item) => (
                   <li
-                    key={item.id}
+                    key={`${item.id}-${item.unitIndex}`}
                     className="flex items-center justify-between"
                   >
                     <span>
-                      {item.product?.name ?? "Product"} x{item.quantity} - BDT{" "}
+                      {item.product?.name ?? "Product"} - BDT{" "}
                       {item.product?.price ?? 0}
                       {item.product?.unit ? `/${item.product.unit}` : ""}
                     </span>
                     <button
                       type="button"
-                      onClick={() => handleRemoveItem(item.id)}
+                      onClick={() => handleRemoveItem(item)}
                       disabled={removingItemId === item.id}
                       className="rounded-full border border-[var(--line)] px-3 py-1 text-xs font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -335,15 +353,18 @@ export default function CartPage() {
                 </div>
               </div>
               <FormStatus tone={status?.tone} message={status?.message} />
-              {placedOrder ? (
+              {placedOrders.length > 0 ? (
                 <div className="grid gap-2">
-                  <button
-                    type="button"
-                    onClick={handleDownloadReceipt}
-                    className="rounded-full border border-[var(--line)] px-5 py-2 text-sm font-semibold text-[var(--ink)]"
-                  >
-                    Download order PDF
-                  </button>
+                  {placedOrders.map((order) => (
+                    <button
+                      key={order.id}
+                      type="button"
+                      onClick={() => handleDownloadReceipt(order)}
+                      className="rounded-full border border-[var(--line)] px-5 py-2 text-sm font-semibold text-[var(--ink)]"
+                    >
+                      Download order #{order.id} PDF
+                    </button>
+                  ))}
                   <button
                     type="button"
                     onClick={() => router.push("/order/history")}

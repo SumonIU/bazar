@@ -83,6 +83,8 @@ export default function SellerDashboardPage() {
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
+  const [orderPage, setOrderPage] = useState(1);
+  const ordersPerPage = 5;
 
   const loadDashboard = async () => {
     setIsLoadingDashboard(true);
@@ -215,6 +217,31 @@ export default function SellerDashboardPage() {
   const formatStatus = (status: SellerOrder["status"]) =>
     status.replace(/_/g, " ").replace(/^\w/, (match) => match.toUpperCase());
 
+  const orderedOrders = [...orders].sort((a, b) => {
+    if (a.status === b.status) {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    }
+    if (a.status === "pending") {
+      return -1;
+    }
+    if (b.status === "pending") {
+      return 1;
+    }
+    return a.status.localeCompare(b.status);
+  });
+
+  const totalOrderPages = Math.max(
+    1,
+    Math.ceil(orderedOrders.length / ordersPerPage),
+  );
+  const safeOrderPage = Math.min(orderPage, totalOrderPages);
+  const pagedOrders = orderedOrders.slice(
+    (safeOrderPage - 1) * ordersPerPage,
+    safeOrderPage * ordersPerPage,
+  );
+
   return (
     <div>
       <SiteHeader />
@@ -278,7 +305,7 @@ export default function SellerDashboardPage() {
             {!isLoadingOrders && !ordersError && orders.length === 0 ? (
               <p className="mt-4 text-sm text-[var(--muted)]">No orders yet.</p>
             ) : null}
-            {orders.length > 0 ? (
+            {pagedOrders.length > 0 ? (
               <div className="mt-4 overflow-x-auto">
                 <table className="w-full min-w-[760px] border-separate border-spacing-y-2 text-sm">
                   <thead>
@@ -292,7 +319,7 @@ export default function SellerDashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {orders.map((order) => (
+                    {pagedOrders.map((order) => (
                       <tr
                         key={order.id}
                         className="rounded-2xl bg-[var(--panel)] shadow-[var(--shadow)]"
@@ -312,6 +339,9 @@ export default function SellerDashboardPage() {
                           <p className="text-xs text-[var(--muted)]">
                             {order.phone}
                           </p>
+                          <p className="text-xs text-[var(--muted)] break-words">
+                            {order.deliveryAddress}
+                          </p>
                         </td>
                         <td className="px-4 py-3 text-xs text-[var(--muted)]">
                           {(order.items ?? []).length > 0
@@ -325,7 +355,14 @@ export default function SellerDashboardPage() {
                             : "No items"}
                         </td>
                         <td className="px-4 py-3 font-semibold">
-                          BDT {Number(order.total ?? 0).toFixed(2)}
+                          BDT{" "}
+                          {Number(
+                            (order.items ?? []).reduce(
+                              (sum, item) =>
+                                sum + item.quantity * item.unitPrice,
+                              0,
+                            ),
+                          ).toFixed(2)}
                         </td>
                         <td className="px-4 py-3">
                           {formatStatus(order.status)}
@@ -380,6 +417,31 @@ export default function SellerDashboardPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            ) : null}
+            {orders.length > ordersPerPage ? (
+              <div className="mt-4 flex items-center justify-end gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setOrderPage((prev) => Math.max(1, prev - 1))}
+                  disabled={safeOrderPage === 1}
+                  className="rounded-full border border-[var(--line)] px-3 py-1 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Prev
+                </button>
+                <span className="text-[var(--muted)]">
+                  Page {safeOrderPage} of {totalOrderPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOrderPage((prev) => Math.min(totalOrderPages, prev + 1))
+                  }
+                  disabled={safeOrderPage === totalOrderPages}
+                  className="rounded-full border border-[var(--line)] px-3 py-1 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Next
+                </button>
               </div>
             ) : null}
           </div>
