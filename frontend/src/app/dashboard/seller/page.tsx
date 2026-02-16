@@ -44,6 +44,30 @@ type SellerProduct = {
   image?: string | null;
 };
 
+type SellerOrderItem = {
+  id: number;
+  quantity: number;
+  unitPrice: number;
+  product?: {
+    id: number;
+    name: string;
+    unit: string;
+  } | null;
+};
+
+type SellerOrder = {
+  id: number;
+  status: "pending" | "in_delivery" | "completed" | "cancelled";
+  total: number;
+  deliveryAddress: string;
+  phone: string;
+  createdAt?: string;
+  customer?: {
+    fullName: string;
+  } | null;
+  items?: SellerOrderItem[];
+};
+
 export default function SellerDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentItems, setRecentItems] = useState<DashboardItem[]>([]);
@@ -55,6 +79,10 @@ export default function SellerDashboardPage() {
   const [deletingProductId, setDeletingProductId] = useState<number | null>(
     null,
   );
+  const [orders, setOrders] = useState<SellerOrder[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
 
   const loadDashboard = async () => {
     setIsLoadingDashboard(true);
@@ -106,9 +134,34 @@ export default function SellerDashboardPage() {
     }
   };
 
+  const loadOrders = async () => {
+    setIsLoadingOrders(true);
+    setOrdersError(null);
+
+    try {
+      const data = await apiFetch<SellerOrder[]>("seller/orders");
+      setOrders(data ?? []);
+    } catch (error) {
+      const message =
+        error && typeof error === "object" && "status" in error
+          ? Number(error.status) === 401
+            ? "Please log in as a seller to view orders."
+            : error && "message" in error
+              ? String(error.message)
+              : "Unable to load orders."
+          : error && typeof error === "object" && "message" in error
+            ? String(error.message)
+            : "Unable to load orders.";
+      setOrdersError(message);
+    } finally {
+      setIsLoadingOrders(false);
+    }
+  };
+
   useEffect(() => {
     loadDashboard();
     loadProducts();
+    loadOrders();
   }, []);
 
   const handleDeleteProduct = async (productId: number) => {
@@ -134,6 +187,33 @@ export default function SellerDashboardPage() {
       setDeletingProductId(null);
     }
   };
+
+  const handleUpdateOrderStatus = async (
+    orderId: number,
+    status: SellerOrder["status"],
+  ) => {
+    setUpdatingOrderId(orderId);
+    setOrdersError(null);
+
+    try {
+      await apiFetch(`orders/${orderId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      await loadOrders();
+    } catch (error) {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String(error.message)
+          : "Unable to update order status.";
+      setOrdersError(message);
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
+
+  const formatStatus = (status: SellerOrder["status"]) =>
+    status.replace(/_/g, " ").replace(/^\w/, (match) => match.toUpperCase());
 
   return (
     <div>
@@ -182,6 +262,126 @@ export default function SellerDashboardPage() {
                 ))}
               </ul>
             )}
+          </div>
+          <div className="rounded-3xl border border-[var(--line)] bg-white p-6 shadow-[var(--shadow)]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Incoming orders</h2>
+              <span className="text-sm text-[var(--muted)]">
+                {isLoadingOrders
+                  ? "Loading orders..."
+                  : `${orders.length} orders`}
+              </span>
+            </div>
+            {ordersError ? (
+              <p className="mt-4 text-sm text-red-600">{ordersError}</p>
+            ) : null}
+            {!isLoadingOrders && !ordersError && orders.length === 0 ? (
+              <p className="mt-4 text-sm text-[var(--muted)]">No orders yet.</p>
+            ) : null}
+            {orders.length > 0 ? (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full min-w-[760px] border-separate border-spacing-y-2 text-sm">
+                  <thead>
+                    <tr className="text-left text-xs uppercase tracking-widest text-[var(--muted)]">
+                      <th className="px-4 py-2">Order</th>
+                      <th className="px-4 py-2">Customer</th>
+                      <th className="px-4 py-2">Items</th>
+                      <th className="px-4 py-2">Total</th>
+                      <th className="px-4 py-2">Status</th>
+                      <th className="px-4 py-2">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.map((order) => (
+                      <tr
+                        key={order.id}
+                        className="rounded-2xl bg-[var(--panel)] shadow-[var(--shadow)]"
+                      >
+                        <td className="px-4 py-3">
+                          <p className="font-semibold">#{order.id}</p>
+                          <p className="text-xs text-[var(--muted)]">
+                            {order.createdAt
+                              ? new Date(order.createdAt).toLocaleDateString()
+                              : ""}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium">
+                            {order.customer?.fullName ?? "Customer"}
+                          </p>
+                          <p className="text-xs text-[var(--muted)]">
+                            {order.phone}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-[var(--muted)]">
+                          {(order.items ?? []).length > 0
+                            ? order.items
+                                ?.map((item) =>
+                                  item.product?.name
+                                    ? `${item.product.name} x${item.quantity}`
+                                    : `Item x${item.quantity}`,
+                                )
+                                .join(", ")
+                            : "No items"}
+                        </td>
+                        <td className="px-4 py-3 font-semibold">
+                          BDT {Number(order.total ?? 0).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {formatStatus(order.status)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            {order.status === "pending" ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUpdateOrderStatus(
+                                      order.id,
+                                      "in_delivery",
+                                    )
+                                  }
+                                  disabled={updatingOrderId === order.id}
+                                  className="rounded-full border border-[var(--line)] bg-white px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  Accept
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUpdateOrderStatus(
+                                      order.id,
+                                      "cancelled",
+                                    )
+                                  }
+                                  disabled={updatingOrderId === order.id}
+                                  className="rounded-full border border-[var(--line)] px-3 py-2 text-xs font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  Decline
+                                </button>
+                              </>
+                            ) : null}
+                            {order.status === "in_delivery" ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleUpdateOrderStatus(order.id, "completed")
+                                }
+                                disabled={updatingOrderId === order.id}
+                                className="rounded-full border border-[var(--line)] bg-white px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                Complete
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
           </div>
           <div className="rounded-3xl border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
             <div className="flex flex-wrap items-center justify-between gap-3">

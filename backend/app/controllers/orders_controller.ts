@@ -26,6 +26,34 @@ const orderStatusValidator = vine.compile(
 )
 
 export default class OrdersController {
+  async sellerIndex({ auth, response }: HttpContext) {
+    const user = auth.user
+    if (!user || user.role !== 'seller') {
+      return response.unauthorized({ message: 'Seller access only.' })
+    }
+
+    return Order.query()
+      .whereHas('items', (itemsQuery) => {
+        itemsQuery.whereHas('product', (productQuery) => {
+          productQuery.where('seller_id', user.id)
+        })
+      })
+      .whereDoesntHave('items', (itemsQuery) => {
+        itemsQuery.whereHas('product', (productQuery) => {
+          productQuery.whereNot('seller_id', user.id)
+        })
+      })
+      .preload('customer')
+      .preload('items', (itemsQuery) => {
+        itemsQuery
+          .whereHas('product', (productQuery) => {
+            productQuery.where('seller_id', user.id)
+          })
+          .preload('product')
+      })
+      .orderBy('created_at', 'desc')
+  }
+
   async index({ auth, response }: HttpContext) {
     const user = auth.user
     if (!user || user.role !== 'customer') {
@@ -88,9 +116,22 @@ export default class OrdersController {
 
     const payload = await request.validateUsing(orderStatusValidator)
 
-    const order = await Order.find(params.id)
+    const order = await Order.query()
+      .where('id', params.id)
+      .preload('items', (itemsQuery) => itemsQuery.preload('product'))
+      .first()
     if (!order) {
       return response.notFound({ message: 'Order not found.' })
+    }
+
+    const sellerItems = order.items.filter((item) => item.product?.sellerId === user.id)
+    if (sellerItems.length === 0) {
+      return response.unauthorized({ message: 'Seller access only.' })
+    }
+
+    const hasOtherSeller = order.items.some((item) => item.product?.sellerId !== user.id)
+    if (hasOtherSeller) {
+      return response.unauthorized({ message: 'Order contains items from other sellers.' })
     }
 
     order.status = payload.status

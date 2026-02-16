@@ -54,6 +54,7 @@ router
     router.delete('cart/:id', [CartController, 'removeItem']).use(middleware.auth())
 
     router.get('orders', [OrdersController, 'index']).use(middleware.auth())
+    router.get('seller/orders', [OrdersController, 'sellerIndex']).use(middleware.auth())
     router.post('orders', [OrdersController, 'placeOrder']).use(middleware.auth())
     router.patch('orders/:id/status', [OrdersController, 'updateStatus']).use(middleware.auth())
 
