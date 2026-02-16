@@ -4,6 +4,7 @@ type FieldProps = {
   type?: string;
   placeholder?: string;
   required?: boolean;
+  defaultValue?: string | number;
 };
 
 export default function FormField({
@@ -12,6 +13,7 @@ export default function FormField({
   type,
   placeholder,
   required,
+  defaultValue,
 }: FieldProps) {
   return (
     <label className="flex flex-col gap-2 text-sm">
@@ -21,6 +23,7 @@ export default function FormField({
         type={type ?? "text"}
         placeholder={placeholder}
         required={required}
+        defaultValue={defaultValue}
         className="rounded-2xl border border-[var(--line)] bg-white px-4 py-3"
       />
     </label>

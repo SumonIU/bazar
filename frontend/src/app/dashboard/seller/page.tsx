@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import { apiFetch } from "@/lib/api";
@@ -248,16 +249,24 @@ export default function SellerDashboardPage() {
                             : "Out of stock"}
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteProduct(product.id)}
-                            disabled={deletingProductId === product.id}
-                            className="rounded-full border border-[var(--line)] px-4 py-2 text-xs font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {deletingProductId === product.id
-                              ? "Deleting..."
-                              : "Delete"}
-                          </button>
+                          <div className="flex flex-wrap gap-2">
+                            <Link
+                              href={`/create-product?id=${product.id}`}
+                              className="rounded-full border border-[var(--line)] px-4 py-2 text-xs font-semibold"
+                            >
+                              Edit
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteProduct(product.id)}
+                              disabled={deletingProductId === product.id}
+                              className="rounded-full border border-[var(--line)] px-4 py-2 text-xs font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {deletingProductId === product.id
+                                ? "Deleting..."
+                                : "Delete"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

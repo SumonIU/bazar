@@ -9,9 +9,9 @@ const productValidator = vine.compile(
     name: vine.string().trim(),
     nutritionInfo: vine.string().trim().optional(),
     image: vine.string().trim().optional(),
-    price: vine.number().min(1),
+    price: vine.number().min(0),
     unit: vine.string().trim(),
-    quantity: vine.number().min(1),
+    quantity: vine.number().min(0),
     description: vine.string().trim().optional(),
   })
 )
@@ -21,9 +21,9 @@ const productUpdateValidator = vine.compile(
     name: vine.string().trim().optional(),
     nutritionInfo: vine.string().trim().optional(),
     image: vine.string().trim().optional(),
-    price: vine.number().min(1).optional(),
+    price: vine.number().min(0).optional(),
     unit: vine.string().trim().optional(),
-    quantity: vine.number().min(1).optional(),
+    quantity: vine.number().min(0).optional(),
     description: vine.string().trim().optional(),
     status: vine.enum(['in_stock', 'out_of_stock'] as const).optional(),
   })
@@ -143,6 +143,8 @@ export default class ProductsController {
 
     const payload = await request.validateUsing(productValidator)
 
+    const status = payload.quantity === 0 ? 'out_of_stock' : 'in_stock'
+
     const product = await Product.create({
       sellerId: user.id,
       name: payload.name,
@@ -152,7 +154,7 @@ export default class ProductsController {
       unit: payload.unit,
       quantity: payload.quantity,
       description: payload.description ?? null,
-      status: 'in_stock',
+      status,
       postedAt: DateTime.local(),
     })
 
@@ -173,10 +175,14 @@ export default class ProductsController {
       return response.notFound({ message: 'Product not found.' })
     }
 
+    const nextQuantity = typeof payload.quantity === 'number' ? payload.quantity : product.quantity
+    const nextStatus = payload.status ?? (nextQuantity === 0 ? 'out_of_stock' : 'in_stock')
+
     product.merge({
       ...payload,
       image: payload.image ?? product.image,
       nutritionInfo: payload.nutritionInfo ?? product.nutritionInfo,
+      status: nextStatus,
     })
     await product.save()
 

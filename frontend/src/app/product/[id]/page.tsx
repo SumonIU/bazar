@@ -280,17 +280,23 @@ export default function ProductPage() {
               <p className="text-sm text-[var(--muted)]">{cartStatus}</p>
             ) : null}
             <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={handleAddToCart}
-                disabled={isAddingToCart || product?.status === "out_of_stock"}
-                className="rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isAddingToCart ? "Adding..." : "Add to cart"}
-              </button>
-              <button className="rounded-full border border-[var(--line)] px-5 py-3 text-sm">
-                Call seller
-              </button>
+              {userRole === "customer" ? (
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  disabled={
+                    isAddingToCart || product?.status === "out_of_stock"
+                  }
+                  className="rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isAddingToCart ? "Adding..." : "Add to cart"}
+                </button>
+              ) : null}
+              {userRole !== "seller" ? (
+                <button className="rounded-full border border-[var(--line)] px-5 py-3 text-sm">
+                  Call seller
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
