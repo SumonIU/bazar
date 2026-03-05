@@ -9,6 +9,11 @@ import FormField from "@/components/form-field";
 import FormStatus from "@/components/form-status";
 import { apiFetch } from "@/lib/api";
 
+type LocationOptionsResponse = {
+  divisions: string[];
+  districts: string[];
+};
+
 export default function CreateSellerPage() {
   const router = useRouter();
   const [status, setStatus] = useState<{
@@ -18,6 +23,12 @@ export default function CreateSellerPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [division, setDivision] = useState("");
+  const [district, setDistrict] = useState("");
+  const [divisions, setDivisions] = useState<string[]>([]);
+  const [districts, setDistricts] = useState<string[]>([]);
+  const [isLoadingLocations, setIsLoadingLocations] = useState(true);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -48,6 +59,65 @@ export default function CreateSellerPage() {
     };
   }, [router]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    apiFetch<LocationOptionsResponse>("locations")
+      .then((data) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setDivisions(data.divisions ?? []);
+        setDistricts(data.districts ?? []);
+      })
+      .catch(() => {
+        if (!isMounted) {
+          return;
+        }
+        setLocationError("Unable to load division and district options.");
+      })
+      .finally(() => {
+        if (!isMounted) {
+          return;
+        }
+        setIsLoadingLocations(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const selectedDivision = division.trim();
+
+    const endpoint = selectedDivision
+      ? `locations?division=${encodeURIComponent(selectedDivision)}`
+      : "locations";
+
+    apiFetch<LocationOptionsResponse>(endpoint)
+      .then((data) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setDistricts(data.districts ?? []);
+      })
+      .catch(() => {
+        if (!isMounted) {
+          return;
+        }
+        setDistricts([]);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [division]);
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setStatus(null);
@@ -58,8 +128,8 @@ export default function CreateSellerPage() {
     const payload = {
       fullName: String(form.get("fullName") || "").trim(),
       shopName: String(form.get("shopName") || "").trim(),
-      division: String(form.get("division") || "").trim(),
-      district: String(form.get("district") || "").trim(),
+      division: division.trim(),
+      district: district.trim(),
       area: String(form.get("area") || "").trim(),
       phone: String(form.get("phone") || "").trim(),
       email: String(form.get("email") || "").trim(),
@@ -73,6 +143,8 @@ export default function CreateSellerPage() {
       });
       setStatus({ tone: "success", message: "Seller created successfully!" });
       formElement.reset();
+      setDivision("");
+      setDistrict("");
       setTimeout(() => {
         router.push("/admin");
       }, 1500);
@@ -133,11 +205,53 @@ export default function CreateSellerPage() {
                   required
                 />
                 <FormField label="Shop name" name="shopName" required />
-                <FormField label="Division" name="division" required />
-                <FormField label="District" name="district" required />
+                <label className="flex flex-col gap-2 text-sm">
+                  <span className="font-medium">Division</span>
+                  <input
+                    name="division"
+                    list="division-options"
+                    required
+                    value={division}
+                    onChange={(event) => {
+                      setDivision(event.target.value);
+                      setDistrict("");
+                    }}
+                    placeholder={
+                      isLoadingLocations ? "Loading..." : "Search division"
+                    }
+                    className="rounded-2xl border border-[var(--line)] bg-white px-4 py-3"
+                  />
+                  <datalist id="division-options">
+                    {divisions.map((item) => (
+                      <option key={item} value={item} />
+                    ))}
+                  </datalist>
+                </label>
+                <label className="flex flex-col gap-2 text-sm">
+                  <span className="font-medium">District</span>
+                  <input
+                    name="district"
+                    list="district-options"
+                    required
+                    value={district}
+                    onChange={(event) => setDistrict(event.target.value)}
+                    placeholder={
+                      isLoadingLocations ? "Loading..." : "Search district"
+                    }
+                    className="rounded-2xl border border-[var(--line)] bg-white px-4 py-3"
+                  />
+                  <datalist id="district-options">
+                    {districts.map((item) => (
+                      <option key={item} value={item} />
+                    ))}
+                  </datalist>
+                </label>
                 <FormField label="Area" name="area" required />
                 <div className="md:col-span-2">
                   <FormStatus tone={status?.tone} message={status?.message} />
+                  {locationError ? (
+                    <p className="mt-2 text-xs text-red-600">{locationError}</p>
+                  ) : null}
                 </div>
                 <button
                   type="submit"

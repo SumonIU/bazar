@@ -18,6 +18,7 @@ const ReviewsController = () => import('#controllers/reviews_controller')
 const CartController = () => import('#controllers/cart_controller')
 const OrdersController = () => import('#controllers/orders_controller')
 const UploadsController = () => import('#controllers/uploads_controller')
+const LocationsController = () => import('#controllers/locations_controller')
 
 router.get('/', async () => {
   return { status: 'ok', service: 'bazar-api' }
@@ -39,6 +40,7 @@ router
 
     router.get('products', [ProductsController, 'index'])
     router.get('products/:id', [ProductsController, 'show'])
+    router.get('locations', [LocationsController, 'index'])
     router.get('seller/products', [ProductsController, 'sellerIndex']).use(middleware.auth())
     router.post('products', [ProductsController, 'store']).use(middleware.auth())
     router.put('products/:id', [ProductsController, 'update']).use(middleware.auth())
