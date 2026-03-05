@@ -10,13 +10,21 @@ export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  const headers = new Headers(options.headers ?? {});
+  headers.set("Accept", "application/json");
+
+  const isFormDataBody =
+    typeof FormData !== "undefined" && options.body instanceof FormData;
+
+  if (isFormDataBody) {
+    headers.delete("Content-Type");
+  } else {
+    headers.set("Content-Type", "application/json");
+  }
+
   const response = await fetch(`${API_BASE_URL}/${path.replace(/^\/+/, "")}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      ...(options.headers ?? {}),
-    },
+    headers,
     credentials: "include",
   });
 

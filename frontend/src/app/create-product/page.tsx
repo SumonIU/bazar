@@ -24,6 +24,11 @@ type ProductApi = ProductDefaults & {
   images?: string | null;
 };
 
+type ProductImageUploadResponse = {
+  url: string;
+  publicId: string;
+};
+
 export default function CreateProductPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -40,6 +45,7 @@ export default function CreateProductPage() {
     useState<ProductDefaults | null>(null);
   const [isLoadingProduct, setIsLoadingProduct] = useState(false);
   const [productLoadError, setProductLoadError] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -132,18 +138,38 @@ export default function CreateProductPage() {
 
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
-    const image = String(form.get("image") || "").trim();
-    const payload = {
-      name: String(form.get("name") || "").trim(),
-      nutritionInfo: String(form.get("nutritionInfo") || "").trim() || null,
-      image: image || null,
-      price: Number(form.get("price")),
-      unit: String(form.get("unit") || "").trim(),
-      quantity: Number(form.get("quantity")),
-      description: String(form.get("description") || "").trim() || null,
-    };
 
     try {
+      let imageUrl = productDefaults?.image?.trim() ?? "";
+      const imageFile = form.get("image") as File | null;
+
+      if (imageFile && imageFile.size > 0) {
+        setIsUploadingImage(true);
+
+        const uploadFormData = new FormData();
+        uploadFormData.append("image", imageFile);
+
+        const uploadedImage = await apiFetch<ProductImageUploadResponse>(
+          "uploads/product-image",
+          {
+            method: "POST",
+            body: uploadFormData,
+          },
+        );
+
+        imageUrl = uploadedImage.url;
+      }
+
+      const payload = {
+        name: String(form.get("name") || "").trim(),
+        nutritionInfo: String(form.get("nutritionInfo") || "").trim() || null,
+        image: imageUrl || null,
+        price: Number(form.get("price")),
+        unit: String(form.get("unit") || "").trim(),
+        quantity: Number(form.get("quantity")),
+        description: String(form.get("description") || "").trim() || null,
+      };
+
       const endpoint = isEditMode && editId ? `products/${editId}` : "products";
       const method = isEditMode ? "PUT" : "POST";
 
@@ -173,6 +199,7 @@ export default function CreateProductPage() {
       setStatus({ tone: "error", message });
     } finally {
       setIsSubmitting(false);
+      setIsUploadingImage(false);
     }
   };
 
@@ -259,12 +286,20 @@ export default function CreateProductPage() {
                   placeholder="Optional"
                   defaultValue={productDefaults?.nutritionInfo}
                 />
-                <FormField
-                  label="Image URL"
-                  name="image"
-                  placeholder="https://..."
-                  defaultValue={productDefaults?.image}
-                />
+                <label className="flex flex-col gap-2 text-sm">
+                  <span className="font-medium">Product image</span>
+                  <input
+                    name="image"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/avif"
+                    className="rounded-2xl border border-[var(--line)] bg-white px-4 py-3"
+                  />
+                  <span className="text-xs text-[var(--muted)]">
+                    {isEditMode && productDefaults?.image
+                      ? "Leave empty to keep current image."
+                      : "Optional. Supported: JPG, PNG, WEBP, AVIF."}
+                  </span>
+                </label>
                 <FormField
                   label="Description"
                   name="description"
@@ -276,16 +311,18 @@ export default function CreateProductPage() {
                 </div>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isUploadingImage}
                   className="mt-2 rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-70 md:col-span-2"
                 >
-                  {isSubmitting
-                    ? isEditMode
-                      ? "Saving..."
-                      : "Creating..."
-                    : isEditMode
-                      ? "Save changes"
-                      : "Create product"}
+                  {isUploadingImage
+                    ? "Uploading image..."
+                    : isSubmitting
+                      ? isEditMode
+                        ? "Saving..."
+                        : "Creating..."
+                      : isEditMode
+                        ? "Save changes"
+                        : "Create product"}
                 </button>
               </form>
             </div>
