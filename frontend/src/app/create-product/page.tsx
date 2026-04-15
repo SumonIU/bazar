@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
@@ -29,7 +29,7 @@ type ProductImageUploadResponse = {
   publicId: string;
 };
 
-export default function CreateProductPage() {
+function CreateProductPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
@@ -331,5 +331,27 @@ export default function CreateProductPage() {
       </main>
       <SiteFooter />
     </div>
+  );
+}
+
+function CreateProductPageFallback() {
+  return (
+    <div>
+      <SiteHeader />
+      <main className="mx-auto w-full max-w-3xl px-6 py-16">
+        <div className="rounded-3xl border border-[var(--line)] bg-white p-6 text-center shadow-[var(--shadow)]">
+          <p className="text-sm text-[var(--muted)]">Loading page...</p>
+        </div>
+      </main>
+      <SiteFooter />
+    </div>
+  );
+}
+
+export default function CreateProductPage() {
+  return (
+    <Suspense fallback={<CreateProductPageFallback />}>
+      <CreateProductPageContent />
+    </Suspense>
   );
 }

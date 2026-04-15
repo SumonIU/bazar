@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import SiteHeader from "@/components/site-header";
@@ -40,7 +40,7 @@ const parseFilterText = (value: string): FilterParams => {
   };
 };
 
-export default function SearchPage() {
+function SearchPageContent() {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("");
@@ -210,6 +210,27 @@ export default function SearchPage() {
       </main>
       <SiteFooter />
     </div>
+  );
+}
+
+function SearchPageFallback() {
+  return (
+    <div>
+      <SiteHeader />
+      <main className="mx-auto w-full max-w-6xl px-6 py-16">
+        <h1 className="font-serif text-3xl">Search products</h1>
+        <p className="mt-6 text-sm text-[var(--muted)]">Loading search...</p>
+      </main>
+      <SiteFooter />
+    </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<SearchPageFallback />}>
+      <SearchPageContent />
+    </Suspense>
   );
 }
 
