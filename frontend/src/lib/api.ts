@@ -3,8 +3,9 @@ type ApiError = {
   status: number;
 };
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3333/api";
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3333/api"
+).replace(/\/+$/, "");
 
 export async function apiFetch<T>(
   path: string,
@@ -22,11 +23,21 @@ export async function apiFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${API_BASE_URL}/${path.replace(/^\/+/, "")}`, {
-    ...options,
-    headers,
-    credentials: "include",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/${path.replace(/^\/+/, "")}`, {
+      ...options,
+      headers,
+      credentials: "include",
+    });
+  } catch {
+    const error: ApiError = {
+      message:
+        "Cannot connect to the API server. Check NEXT_PUBLIC_API_BASE_URL and backend CORS settings.",
+      status: 0,
+    };
+    throw error;
+  }
 
   if (!response.ok) {
     let errorMessage = "Request failed";

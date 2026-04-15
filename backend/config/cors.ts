@@ -1,3 +1,4 @@
+import env from '#start/env'
 import { defineConfig } from '@adonisjs/cors'
 
 /**
@@ -6,9 +7,35 @@ import { defineConfig } from '@adonisjs/cors'
  *
  * https://docs.adonisjs.com/guides/security/cors
  */
+const configuredOrigins = (env.get('CORS_ORIGINS') || '')
+  .split(',')
+  .map((origin: string) => origin.trim())
+  .filter(Boolean)
+
+const explicitOrigins = [
+  'http://localhost:3000',
+  'https://bazar-syar.vercel.app',
+  ...configuredOrigins,
+]
+
 const corsConfig = defineConfig({
   enabled: true,
-  origin: ['http://localhost:3000'],
+  origin: (origin: string | undefined) => {
+    if (!origin) {
+      return true
+    }
+
+    if (explicitOrigins.includes(origin)) {
+      return true
+    }
+
+    try {
+      const hostname = new URL(origin).hostname
+      return hostname.endsWith('.vercel.app')
+    } catch {
+      return false
+    }
+  },
   methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   headers: true,
   exposeHeaders: [],
